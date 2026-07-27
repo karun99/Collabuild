@@ -1,0 +1,132 @@
+# Collabuild MAS — Configuration
+# ========================================
+# Provider switching: set `pipeline.provider` to one of:
+#   openrouter | nvidia | claude | ollama | koboldcpp | textgen | custom
+# ========================================
+
+providers:
+  openrouter:
+    endpoint: "https://openrouter.ai/api/v1"
+    api_key: "${OPENROUTER_API_KEY}"
+    model: "openrouter/free"
+
+  nvidia:
+    endpoint: "https://integrate.api.nvidia.com/v1"
+    api_key: "${NVIDIA_API_KEY}"
+    model: "nvidia/llama-3.1-nemotron-70b-instruct"
+
+  claude:
+    endpoint: "https://api.anthropic.com/v1"
+    api_key: "${ANTHROPIC_API_KEY}"
+    model: "claude-sonnet-4-20250514"
+
+  ollama:
+    endpoint: "http://localhost:11434"
+    model: "llama3.1"
+
+  koboldcpp:
+    endpoint: "http://localhost:5001"
+    model: "default"
+
+  textgen:
+    endpoint: "http://localhost:5000"
+    model: "local"
+
+  custom:
+    endpoint: ""
+    api_key: ""
+    model: ""
+
+# Baidu OCR — Unlimited document parsing + general OCR
+# Free tiers:
+#   Unlimited-OCR: 200 pages/personal, 1000 pages/enterprise
+#   General OCR:   1000 calls/month/personal
+#   Web Image OCR: 1000 calls/month/personal
+#   Table OCR:     500 calls/month/personal
+ocr:
+  baidu:
+    api_key: "${BAIDU_OCR_API_KEY}"
+    secret_key: "${BAIDU_OCR_SECRET_KEY}"
+    timeout: 120
+    poll_interval: 5
+    max_polls: 60
+
+# Web fetcher settings
+web_fetcher:
+  timeout: 30
+  max_retries: 3
+  retry_delay: 2.0
+  max_content_mb: 10
+
+# Agent runner settings
+agent_runner:
+  max_steps: 15
+  max_tool_calls: 50
+  timeout: 600
+  temperature: 0.3
+
+# Model search paths for local GGUF/GGML discovery
+model_search_paths:
+  - "~/models"
+  - "~/Downloads"
+  - "~/.cache/huggingface/hub"
+  - "/opt/models"
+  - "/usr/share/models"
+  - "./models"
+
+# Chat defaults
+chat:
+  system_prompt: "You are a helpful, harmless, and honest AI assistant."
+  max_tokens: 4096
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 40
+  repeat_penalty: 1.1
+  context_length: 8192
+  stream: true
+
+pipeline:
+  provider: "openrouter"
+  output:
+    report_file: "pipeline_report.md"
+    save_mermaid: true
+    mermaid_dir: "diagrams"
+
+  stages:
+    paper_analysis:
+      agent: "Paper-Analyzer"
+      temperature: 0.3
+      description: "Parse research paper → extract methodology, algorithms, architecture"
+    srs:
+      agent: "SRS-Engineer"
+      temperature: 0.3
+      description: "Generate IEEE 830 Software Requirements Specification"
+    module_design:
+      agent: "Module-Architect"
+      temperature: 0.3
+      description: "Decompose into modules with interfaces and data flow"
+    user_flow:
+      agent: "UX-Designer"
+      temperature: 0.4
+      description: "Design user flows with sequence diagrams"
+    sdlc_plan:
+      agent: "SDLC-Planner"
+      temperature: 0.3
+      description: "Create project timeline, sprints, milestones"
+    code_gen:
+      agent: "Code-Gen"
+      temperature: 0.2
+      max_tokens: 8192
+      description: "Generate production-ready implementation code"
+    debug:
+      agent: "Debug-Reviewer"
+      temperature: 0.1
+      description: "Review code for bugs, security, performance"
+    deployment:
+      agent: "DevOps-Architect"
+      temperature: 0.3
+      description: "Design deployment infrastructure and CI/CD"
+    final_review:
+      agent: "QA-Reviewer"
+      temperature: 0.1
+      description: "Final accuracy and efficiency validation"

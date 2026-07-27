@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}Collabuild MAS — Pipeline{% endblock %}
+
+{% block body %}
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      <h1>Collabuild MAS</h1>
+      <span class="version">v0.2</span>
+    </div>
+    <div class="sidebar-content">
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Navigation</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <a href="/" class="nav-tab" style="text-align:left;display:block;">Chat</a>
+          <a href="/settings" class="nav-tab" style="text-align:left;display:block;">Settings</a>
+          <a href="/pipeline" class="nav-tab active" style="text-align:left;display:block;">Pipeline</a>
+          <a href="/tools" class="nav-tab" style="text-align:left;display:block;">Tools</a>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Pipeline Stages</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          {% for s in stages %}
+          <div style="font-size:12px;color:var(--text-muted);padding:4px 8px;background:var(--bg-tertiary);border-radius:4px;">
+            <span style="color:var(--text-dim);margin-right:4px;">{{ loop.index }}.</span> {{ s }}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Supported Providers</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <span class="provider-badge badge-openrouter">OpenRouter</span>
+          <span class="provider-badge badge-nvidia">NVIDIA Build</span>
+          <span class="provider-badge badge-ollama">Ollama</span>
+          <span class="provider-badge badge-koboldcpp">KoboldCPP</span>
+          <span class="provider-badge badge-textgen">text-gen-webui</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" style="overflow-y:auto;padding:24px;">
+    <h2 style="font-size:20px;color:var(--text-primary);margin-bottom:8px;">Research Paper Pipeline</h2>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+      Enter a research paper and run the 9-stage MAS pipeline to produce SRS, architecture, code, and deployment plans.
+    </p>
+
+    <!-- Run form -->
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;">
+      <div class="field-group">
+        <label class="field-label">Research Paper</label>
+        <textarea id="paper-input" rows="8" placeholder="Paste the full research paper text here..."></textarea>
+      </div>
+
+      <div class="field-row" style="margin-top:12px;">
+        <div class="field-group">
+          <label class="field-label">Provider</label>
+          <select id="pipe-provider">
+            {% for p in providers %}
+            <option value="{{ p }}">{{ p|title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Model (optional)</label>
+          <input type="text" id="pipe-model" placeholder="e.g. llama3.1, gpt-4o">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn-primary" onclick="startPipeline()">Run Pipeline</button>
+        <button class="btn-secondary" id="pipe-cancel" onclick="cancelPipeline()" style="display:none;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div id="pipe-progress" style="display:none;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h3 style="font-size:14px;color:var(--accent-blue);">Pipeline Running</h3>
+        <span id="pipe-pct" style="font-size:12px;color:var(--text-muted);">0%</span>
+      </div>
+      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:8px;">
+        <div id="pipe-bar" style="height:100%;background:var(--accent-blue);width:0%;transition:width 0.5s;border-radius:2px;"></div>
+      </div>
+      <p id="pipe-stage" style="font-size:12px;color:var(--text-muted);">Initializing...</p>
+      <div id="pipe-stages" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:12px;">
+        {% for i in range(9) %}
+        <span id="pipe-stage-{{ i }}" style="padding:3px 10px;border-radius:10px;font-size:11px;background:var(--bg-tertiary);color:var(--text-muted);">Stage {{ i+1 }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="pipe-results"></div>
+  </main>
+</div>
+
+<script>
+let currentRunId = null;
+let evtSource = null;
+
+const stageNames = [
+  'Paper Analysis', 'SRS Generation', 'Module Design', 'User Flow Design',
+  'SDLC Plan', 'Code Generation', 'Debugging & Review', 'Deployment Plan', 'Final Review'
+];
+
+async function startPipeline() {
+  const paper = document.getElementById('paper-input').value.trim();
+  const provider = document.getElementById('pipe-provider').value;
+  const model = document.getElementById('pipe-model').value;
+
+  if (!paper) { showToast('Please enter a research paper', 'error'); return; }
+
+  document.getElementById('pipe-progress').style.display = 'block';
+  document.getElementById('pipe-cancel').style.display = 'inline-flex';
+
+  try {
+    const r = await fetch('/api/pipeline/run', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ paper, provider, model }),
+    });
+    const data = await r.json();
+    currentRunId = data.run_id;
+    streamProgress();
+  } catch(e) { showToast('Failed to start pipeline', 'error'); }
+}
+
+function streamProgress() {
+  if (!currentRunId) return;
+  evtSource = new EventSource(`/api/pipeline/${currentRunId}/stream`);
+
+  evtSource.addEventListener('progress', (e) => {
+    const data = JSON.parse(e.data);
+    document.getElementById('pipe-bar').style.width = data.progress + '%';
+    document.getElementById('pipe-pct').textContent = data.progress + '%';
+    document.getElementById('pipe-stage').textContent = 'Stage: ' + (data.stage || '...');
+
+    for (let i = 0; i < stageNames.length; i++) {
+      const el = document.getElementById('pipe-stage-' + i);
+      el.textContent = stageNames[i];
+      if (i < data.stage_index) el.style.cssText = 'padding:3px 10px;border-radius:10px;font-size:11px;background:var(--accent-green);color:var(--bg-primary);';
+      else if (i === data.stage_index) el.style.cssText = 'padding:3px 10px;border-radius:10px;font-size:11px;background:var(--accent-blue);color:var(--bg-primary);';
+      else el.style.cssText = 'padding:3px 10px;border-radius:10px;font-size:11px;background:var(--bg-tertiary);color:var(--text-muted);';
+    }
+  });
+
+  evtSource.addEventListener('complete', (e) => {
+    evtSource.close();
+    document.getElementById('pipe-bar').style.width = '100%';
+    document.getElementById('pipe-pct').textContent = '100%';
+    document.getElementById('pipe-stage').textContent = 'Complete!';
+    loadResults();
+  });
+
+  evtSource.addEventListener('error', (e) => {
+    evtSource.close();
+    document.getElementById('pipe-stage').textContent = 'Error occurred';
+    document.getElementById('pipe-bar').style.background = 'var(--accent-red)';
+  });
+}
+
+function cancelPipeline() {
+  if (evtSource) evtSource.close();
+  document.getElementById('pipe-progress').style.display = 'none';
+  document.getElementById('pipe-cancel').style.display = 'none';
+}
+
+async function loadResults() {
+  if (!currentRunId) return;
+  try {
+    const r = await fetch(`/api/pipeline/${currentRunId}`);
+    const data = await r.json();
+    if (data.status !== 'complete') return;
+
+    const el = document.getElementById('pipe-results');
+    let html = '<div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;">';
+    html += '<h3 style="font-size:16px;color:var(--accent-green);margin-bottom:16px;">Pipeline Complete</h3>';
+
+    for (const [key, r] of Object.entries(data.results)) {
+      const statusColor = r.passed ? 'var(--accent-green)' : 'var(--accent-red)';
+      html += `<div style="margin-bottom:16px;padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h4 style="font-size:13px;color:var(--accent-blue);">${r.stage}</h4>
+          <span style="font-size:11px;color:${statusColor};">${r.passed ? 'PASS' : 'FAIL'}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Agent: ${r.agent}</div>
+        <details>
+          <summary style="cursor:pointer;font-size:12px;color:var(--text-secondary);">View output</summary>
+          <pre style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;padding:10px;margin-top:8px;font-size:11px;font-family:var(--font-mono);overflow-x:auto;white-space:pre-wrap;max-height:300px;overflow-y:auto;color:var(--text-primary);">${r.content}</pre>
+        </details>
+      </div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) { showToast('Failed to load results', 'error'); }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}Collabuild MAS — Settings{% endblock %}
+
+{% block body %}
+<div class="app">
+  <!-- Sidebar nav -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      <h1>Collabuild MAS</h1>
+      <span class="version">v0.2</span>
+    </div>
+    <div class="sidebar-content">
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Navigation</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <a href="/" class="nav-tab" style="text-align:left;display:block;">Chat</a>
+          <a href="/settings" class="nav-tab active" style="text-align:left;display:block;">Settings</a>
+          <a href="/pipeline" class="nav-tab" style="text-align:left;display:block;">Pipeline</a>
+          <a href="/tools" class="nav-tab" style="text-align:left;display:block;">Tools</a>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Provider Status</div>
+        <div id="status-list" style="font-size:12px;">
+          <div style="padding:6px 0;color:var(--text-muted);">Click refresh to check...</div>
+        </div>
+        <button class="btn-secondary btn-sm" onclick="refreshStatuses()" style="margin-top:6px;width:100%;">Refresh Status</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" style="overflow-y:auto;padding:24px;">
+    <h2 style="font-size:20px;color:var(--text-primary);margin-bottom:20px;">Settings</h2>
+
+    <!-- Provider Config -->
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;">
+      <h3 style="font-size:14px;color:var(--accent-blue);margin-bottom:16px;">Provider Configuration</h3>
+
+      <div class="field-group">
+        <label class="field-label">Active Provider</label>
+        <select id="set-provider">
+          {% for p in providers %}
+          <option value="{{ p }}">{{ p|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field-row" style="margin-top:12px;">
+        <div class="field-group">
+          <label class="field-label">Endpoint URL</label>
+          <input type="text" id="set-endpoint" placeholder="https://api.example.com/v1">
+        </div>
+        <div class="field-group">
+          <label class="field-label">API Key</label>
+          <input type="password" id="set-apikey" placeholder="sk-...">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Default Model</label>
+        <input type="text" id="set-model" placeholder="e.g. llama3.1, nvidia/llama-3.1-nemotron-70b-instruct">
+      </div>
+
+      <button class="btn-primary" onclick="saveSettingsPage()" style="margin-top:12px;">Save Provider Settings</button>
+    </div>
+
+    <!-- Chat Defaults -->
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;">
+      <h3 style="font-size:14px;color:var(--accent-green);margin-bottom:16px;">Chat Defaults</h3>
+
+      <div class="field-group">
+        <label class="field-label">System Prompt</label>
+        <textarea id="set-sysprompt" rows="3">You are a helpful, harmless, and honest AI assistant.</textarea>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Temperature</label>
+          <input type="number" id="set-temp" value="0.7" min="0" max="2" step="0.05">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Max Tokens</label>
+          <input type="number" id="set-maxtokens" value="4096" min="1" max="128000">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Top P</label>
+          <input type="number" id="set-topp" value="0.9" min="0" max="1" step="0.05">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Top K</label>
+          <input type="number" id="set-topk" value="40" min="0" max="200">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Repeat Penalty</label>
+          <input type="number" id="set-reppen" value="1.1" min="1" max="2" step="0.05">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Context Length</label>
+          <input type="number" id="set-ctxlen" value="8192" min="512" max="200000">
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Search Paths -->
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;">
+      <h3 style="font-size:14px;color:var(--accent-yellow);margin-bottom:16px;">Local Model Search Paths</h3>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        Directories to scan for .gguf and .ggml files. One path per line.
+      </p>
+      <textarea id="set-searchpaths" rows="6" style="font-family:var(--font-mono);font-size:12px;">~/models
+~/Downloads
+~/.cache/huggingface/hub
+/opt/models
+./models</textarea>
+      <button class="btn-secondary btn-sm" onclick="saveSearchPaths()" style="margin-top:8px;">Save Paths</button>
+    </div>
+
+    <!-- NVIDIA Build Info -->
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;">
+      <h3 style="font-size:14px;color:var(--accent-green);margin-bottom:16px;">NVIDIA Build</h3>
+      <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;">
+        Access 160+ open models via <a href="https://build.nvidia.com" target="_blank">build.nvidia.com</a>.<br>
+        Get your API key from <a href="https://build.nvidia.com/docs/overview" target="_blank">NVIDIA Build</a>.<br>
+        Models include: Llama 3.1, Mixtral, Gemma, CodeLlama, Nemotron, and more.<br>
+        Endpoint: <code style="background:var(--bg-primary);padding:2px 6px;border-radius:3px;font-size:11px;">https://integrate.api.nvidia.com/v1</code>
+      </p>
+    </div>
+
+    <!-- Provider Reference -->
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;">
+      <h3 style="font-size:14px;color:var(--accent-magenta);margin-bottom:16px;">Provider Reference</h3>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="text-align:left;padding:8px;color:var(--text-muted);">Provider</th>
+            <th style="text-align:left;padding:8px;color:var(--text-muted);">Default Endpoint</th>
+            <th style="text-align:left;padding:8px;color:var(--text-muted);">Auth</th>
+            <th style="text-align:left;padding:8px;color:var(--text-muted);">Models</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px;"><span class="provider-badge badge-openrouter">OpenRouter</span></td>
+            <td style="padding:8px;font-family:var(--font-mono);font-size:11px;">openrouter.ai/api/v1</td>
+            <td style="padding:8px;">API Key</td>
+            <td style="padding:8px;">200+</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px;"><span class="provider-badge badge-nvidia">NVIDIA Build</span></td>
+            <td style="padding:8px;font-family:var(--font-mono);font-size:11px;">integrate.api.nvidia.com/v1</td>
+            <td style="padding:8px;">API Key</td>
+            <td style="padding:8px;">160+</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px;"><span class="provider-badge badge-ollama">Ollama</span></td>
+            <td style="padding:8px;font-family:var(--font-mono);font-size:11px;">localhost:11434</td>
+            <td style="padding:8px;">None</td>
+            <td style="padding:8px;">Local</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px;"><span class="provider-badge badge-koboldcpp">KoboldCPP</span></td>
+            <td style="padding:8px;font-family:var(--font-mono);font-size:11px;">localhost:5001</td>
+            <td style="padding:8px;">None</td>
+            <td style="padding:8px;">GGUF files</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;"><span class="provider-badge badge-textgen">text-gen-webui</span></td>
+            <td style="padding:8px;font-family:var(--font-mono);font-size:11px;">localhost:5000</td>
+            <td style="padding:8px;">None</td>
+            <td style="padding:8px;">Multiple</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', loadSettingsPage);
+
+function loadSettingsPage() {
+  fetch('/api/settings').then(r => r.json()).then(s => {
+    if (s.provider) document.getElementById('set-provider').value = s.provider;
+    if (s.endpoint) document.getElementById('set-endpoint').value = s.endpoint;
+    if (s.api_key) document.getElementById('set-apikey').value = s.api_key;
+    if (s.model) document.getElementById('set-model').value = s.model;
+    if (s.system_prompt) document.getElementById('set-sysprompt').value = s.system_prompt;
+    if (s.temperature !== undefined) document.getElementById('set-temp').value = s.temperature;
+    if (s.max_tokens) document.getElementById('set-maxtokens').value = s.max_tokens;
+    if (s.top_p !== undefined) document.getElementById('set-topp').value = s.top_p;
+    if (s.top_k !== undefined) document.getElementById('set-topk').value = s.top_k;
+    if (s.repeat_penalty !== undefined) document.getElementById('set-reppen').value = s.repeat_penalty;
+    if (s.context_length) document.getElementById('set-ctxlen').value = s.context_length;
+    if (s.model_search_paths) {
+      document.getElementById('set-searchpaths').value = s.model_search_paths.join('\n');
+    }
+  });
+}
+
+async function saveSettingsPage() {
+  const data = {
+    provider: document.getElementById('set-provider').value,
+    endpoint: document.getElementById('set-endpoint').value,
+    api_key: document.getElementById('set-apikey').value,
+    model: document.getElementById('set-model').value,
+    system_prompt: document.getElementById('set-sysprompt').value,
+    temperature: parseFloat(document.getElementById('set-temp').value),
+    max_tokens: parseInt(document.getElementById('set-maxtokens').value),
+    top_p: parseFloat(document.getElementById('set-topp').value),
+    top_k: parseInt(document.getElementById('set-topk').value),
+    repeat_penalty: parseFloat(document.getElementById('set-reppen').value),
+    context_length: parseInt(document.getElementById('set-ctxlen').value),
+  };
+  await fetch('/api/settings', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(data),
+  });
+  showToast('Settings saved');
+}
+
+async function saveSearchPaths() {
+  const paths = document.getElementById('set-searchpaths').value.split('\n').map(s => s.trim()).filter(Boolean);
+  await fetch('/api/settings', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ model_search_paths: paths }),
+  });
+  showToast('Search paths saved');
+}
+
+async function refreshStatuses() {
+  const el = document.getElementById('status-list');
+  el.innerHTML = '<div style="padding:6px;color:var(--text-muted);">Checking...</div>';
+  try {
+    const r = await fetch('/api/providers/status');
+    const data = await r.json();
+    let html = '';
+    for (const [name, info] of Object.entries(data)) {
+      const dot = info.status === 'online' ? 'status-online' : 'status-offline';
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <span class="status-dot ${dot}"></span>
+        <span style="font-weight:500;text-transform:capitalize;">${name}</span>
+        <span style="color:var(--text-muted);font-size:11px;margin-left:auto;">${info.endpoint || info.error || ''}</span>
+      </div>`;
+    }
+    el.innerHTML = html || '<div style="padding:6px;color:var(--text-muted);">No local providers to check</div>';
+  } catch(e) { el.innerHTML = '<div style="padding:6px;color:var(--accent-red);">Failed to check</div>'; }
+}
+</script>
+{% endblock %}

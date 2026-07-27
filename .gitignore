@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.whl
+*.tar.gz
+collabuild/web/settings.json
+.env
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

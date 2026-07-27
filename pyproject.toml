@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "collabuild-mas"
+version = "0.3.0"
+description = "First-in-class fully customisable MAS: research paper to production pipeline with KoboldCPP-style chat UI, 7 LLM providers, Baidu OCR, autonomous agent runner"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "Sai Karun Nandipati", email = "karun99@users.noreply.github.com" },
+]
+keywords = [
+    "multi-agent-system", "mas", "llm", "research-pipeline",
+    "ocr", "openrouter", "ollama", "koboldcpp", "fastapi",
+    "document-parsing", "ai", "devops",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = [
+    "requests>=2.28",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "sse-starlette>=2.0",
+]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+]
+all = [
+    "ollama",
+    "Pillow>=10.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/karun99/Collabuild"
+Repository = "https://github.com/karun99/Collabuild"
+Documentation = "https://github.com/karun99/Collabuild/tree/main/docs"
+Author = "https://karun99.github.io"
+
+[project.scripts]
+collabuild = "collabuild.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["collabuild*"]
+
+[tool.setuptools.package-data]
+collabuild = ["web/templates/*.html", "config.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501"]
