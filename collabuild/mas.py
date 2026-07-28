@@ -113,6 +113,13 @@ class Agent:
                 time.sleep(2 ** attempt)
 
 class Crew:
+    """Multi-agent Crew with support for AgentRunner-based autonomous execution.
+
+    Usage:
+        crew = Crew(agents=[...], tasks=[...])
+        crew.kickoff()                          # standard execution
+        crew.kickoff_with_runner(agent_runner)   # AgentRunner autonomous mode
+    """
     def __init__(self, agents: list[Agent], tasks: list[Task], process: ProcessType = ProcessType.SEQUENTIAL):
         self.agents = {a.config.name: a for a in agents}
         self.tasks = tasks
@@ -127,6 +134,40 @@ class Crew:
             return self._run_parallel()
         elif self.process == ProcessType.HIERARCHICAL:
             return self._run_hierarchical()
+
+    def kickoff_with_runner(self, agent_runner=None) -> list[Task]:
+        """Execute all tasks using AgentRunner for autonomous research/OCR workflows.
+
+        Each task is dispatched to the AgentRunner which handles tool calling,
+        web fetching, OCR, and Python execution autonomously.
+
+        Args:
+            agent_runner: AgentRunner instance (created internally if None)
+
+        Returns:
+            list[Task] with results populated
+        """
+        if agent_runner is None:
+            from .research.agent_runner import AgentRunner
+            agent_runner = AgentRunner()
+
+        self.log.info(f"Kickoff with AgentRunner: {len(self.tasks)} tasks")
+        for task in self.tasks:
+            context_str = json.dumps(task.context, ensure_ascii=False) if task.context else ""
+            result = agent_runner.run(
+                task=task.description,
+                context=context_str,
+            )
+            task.result = {
+                "final_answer": result.final_answer,
+                "steps": len(result.steps),
+                "tool_calls": result.total_tool_calls,
+                "duration_ms": result.total_duration_ms,
+                "success": result.success,
+            }
+            if task.callback:
+                task.callback(task)
+        return self.tasks
 
     def _run_sequential(self) -> list[Task]:
         results = {}
@@ -224,10 +265,74 @@ class OCRAgent(Agent):
         r.raise_for_status()
         return r.json()["choices"][0]["message"]["content"]
 
+class AgentRunnerAgent(Agent):
+    """Agent that delegates task execution to the research AgentRunner for autonomous
+    research with web fetch, OCR, Python exec, and search tool use.
+
+    The AgentRunner handles the full reasoning loop — breaking tasks into steps,
+    calling tools, synthesizing results — without needing per-step LLM calls
+    routed through the Agent's own API endpoint.
+    """
+
+    def __init__(self, config: AgentConfig, agent_runner=None):
+        super().__init__(config)
+        self.agent_runner = agent_runner
+
+    def run(self, task: Task) -> dict:
+        context_str = json.dumps(task.context, ensure_ascii=False) if task.context else ""
+
+        if self.agent_runner is None:
+            self.log.warning("[agent-runner] No AgentRunner configured, falling back to local mode")
+            local = self._local_fn(task)
+            return {"final_answer": local, "steps": [], "total_tool_calls": 0,
+                    "duration_ms": 0.0, "success": True}
+
+        result = self.agent_runner.run(
+            task=task.description,
+            context=context_str,
+        )
+        task.result = result.final_answer
+        return {
+            "final_answer": result.final_answer,
+            "steps": [
+                {"step": s.step_num, "thought": s.thought, "tool_calls": len(s.tool_calls)}
+                for s in result.steps
+            ],
+            "total_tool_calls": result.total_tool_calls,
+            "duration_ms": result.total_duration_ms,
+            "success": result.success,
+        }
+
+
 class DocumentAnalyzer(Agent):
-    """Analyzes parsed document content from OCR."""
-    pass
+    """Analyzes parsed document content from OCR using AgentRunner for deep analysis."""
+    def __init__(self, config: AgentConfig, agent_runner=None):
+        super().__init__(config)
+        self.agent_runner = agent_runner
+
+    def run(self, task: Task) -> str:
+        if self.agent_runner:
+            context_str = json.dumps(task.context, ensure_ascii=False)
+            result = self.agent_runner.run(
+                task=f"Analyze this document content: {task.description}",
+                context=context_str,
+            )
+            return result.final_answer
+        return super().run(task)
+
 
 class QualityChecker(Agent):
-    """Validates OCR output quality and flags issues."""
-    pass
+    """Validates OCR output quality and flags issues using AgentRunner for automated QA."""
+    def __init__(self, config: AgentConfig, agent_runner=None):
+        super().__init__(config)
+        self.agent_runner = agent_runner
+
+    def run(self, task: Task) -> str:
+        if self.agent_runner:
+            context_str = json.dumps(task.context, ensure_ascii=False)
+            result = self.agent_runner.run(
+                task=f"Quality-check this OCR/document output: {task.description}",
+                context=context_str,
+            )
+            return result.final_answer
+        return super().run(task)

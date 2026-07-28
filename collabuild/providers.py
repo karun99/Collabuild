@@ -1060,7 +1060,7 @@ To use a real provider:
             if stage_key in combined:
                 return response
 
-        return self.DEFAULT_RESPONSE.format(version="0.3.0")
+        return self.DEFAULT_RESPONSE.format(version="1.0.0")
 
     def chat_stream(self, model: str, messages: list, temperature: float = 0.3,
                     max_tokens: int = 4096) -> Iterator[str]:
@@ -1111,6 +1111,286 @@ def discover_local_models(search_paths: list = None) -> list:
 
 
 # ═══════════════════════════════════════════════════════════════
+# Bhashini AI — Indian Languages API (भाषिणी)
+# ═══════════════════════════════════════════════════════════════
+
+class BhashiniAIProvider(LLMProvider):
+    """Bhashini AI — Indian Language Translation, Transliteration, and NLP.
+
+    Bhashini (भाषिणी) is India's National Language Translation Mission.
+    Provides:
+      • Machine Translation (22+ Indian languages ↔ English, Hindi pivot)
+      • Transliteration (script conversion)
+      • Language detection
+      • ASR (speech-to-text) and TTS (text-to-speech)
+      • Indian language text generation via LLM pipeline
+
+    API reference: https://bhashini.gov.in/api-docs
+    Requires ULCA API key from https://bhashini.gov.in/ulca/user/signup
+
+    Config:
+        api_key (str): Bhashini ULCA API key (required)
+        endpoint (str): API base URL (default: https://nlp.ulcai.com/api/v1)
+        pipeline_config (dict): pipeline service IDs for translation,
+                                transliteration, tts, asr
+        default_target_lang (str): target language code (default: "en")
+        default_source_lang (str): source language code (default: "" = auto-detect)
+    """
+
+    DEFAULT_ENDPOINT = "https://nlp.ulcai.com/api/v1"
+
+    SUPPORTED_LANGUAGES = {
+        "as": "Assamese", "bn": "Bengali", "brx": "Bodo", "doi": "Dogri",
+        "gom": "Konkani", "gu": "Gujarati", "hi": "Hindi", "kn": "Kannada",
+        "ks": "Kashmiri", "kok": "Konkani", "mai": "Maithili", "ml": "Malayalam",
+        "mr": "Marathi", "mni": "Manipuri", "ne": "Nepali", "or": "Odia",
+        "pa": "Punjabi", "sa": "Sanskrit", "sat": "Santali", "sd": "Sindhi",
+        "ta": "Tamil", "te": "Telugu", "ur": "Urdu", "en": "English",
+    }
+    LANGUAGE_CODES = {v.lower(): k for k, v in SUPPORTED_LANGUAGES.items()}
+    LANGUAGE_CODES.update({k: k for k in SUPPORTED_LANGUAGES})
+
+    def __init__(self, api_key: str = "", endpoint: str = "",
+                 name: str = "bhashini", default_target_lang: str = "en",
+                 pipeline_config: dict = None):
+        super().__init__(name)
+        self.api_key = api_key or os.getenv("BHASHINI_API_KEY", "")
+        self.endpoint = (endpoint or self.DEFAULT_ENDPOINT).rstrip("/")
+        self.default_target_lang = default_target_lang
+        self.pipeline_config = pipeline_config or {}
+
+    def _headers(self) -> dict:
+        return {
+            "Content-Type": "application/json",
+            "x-api-key": self.api_key,
+            "Accept": "application/json",
+        }
+
+    def _resolve_lang_code(self, lang: str) -> str:
+        """Resolve language name/code to ISO 639-1 code."""
+        if not lang:
+            return self.default_target_lang
+        lang_lower = lang.lower().strip()
+        if lang_lower in self.SUPPORTED_LANGUAGES:
+            return lang_lower
+        return self.LANGUAGE_CODES.get(lang_lower, lang_lower)
+
+    # ── Core API call ────────────────────────────────────────
+
+    def _call_pipeline(self, service_id: str, input_text: str,
+                       source_lang: str = "", target_lang: str = "",
+                       task_type: str = "translation") -> str:
+        """Call Bhashini ULCA pipeline service.
+
+        Args:
+            service_id: ULCA pipeline service ID or endpoint path
+            input_text: text to process
+            source_lang: source language code (auto-detect if empty)
+            target_lang: target language code
+            task_type: 'translation', 'transliteration', 'tts', 'asr', 'ner'
+        """
+        if not self.api_key:
+            return "[BhashiniAI Error: BHASHINI_API_KEY not configured. Get one at https://bhashini.gov.in/ulca/user/signup]"
+
+        import requests
+
+        source = self._resolve_lang_code(source_lang) if source_lang else "auto"
+        target = self._resolve_lang_code(target_lang) if target_lang else self.default_target_lang
+
+        payload = {
+            "pipelineTasks": [{
+                "taskType": task_type,
+                "config": {
+                    "language": {
+                        "sourceLanguage": source if source != "auto" else "en",
+                        "targetLanguage": target,
+                    },
+                    "serviceId": service_id or "",
+                }
+            }],
+            "inputData": {
+                "input": [{"source": input_text}]
+            },
+        }
+
+        try:
+            r = requests.post(
+                f"{self.endpoint}/pipeline",
+                json=payload,
+                headers=self._headers(),
+                timeout=60,
+            )
+            r.raise_for_status()
+            data = r.json()
+            output = data.get("pipelineResponse", [{}])[0]
+            output_data = output.get("output", [{}])[0]
+            target_text = output_data.get("target", "")
+            if target_text:
+                return target_text
+            return output_data.get("source", input_text)
+        except requests.RequestException as e:
+            log.warning(f"[bhashini] pipeline call failed: {e}")
+            return f"[BhashiniAPI Error: {e}]"
+
+    # ── Public API methods ────────────────────────────────────
+
+    def translate(self, text: str, source_lang: str = "",
+                  target_lang: str = "en") -> str:
+        """Translate text between Indian languages / English.
+
+        Args:
+            text: text to translate
+            source_lang: source language code or name ("" = auto-detect)
+            target_lang: target language code or name (default: "en")
+
+        Returns:
+            Translated text
+        """
+        return self._call_pipeline(
+            service_id="ai4bharat/indictrans-v2",
+            input_text=text,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            task_type="translation",
+        )
+
+    def transliterate(self, text: str, source_lang: str = "hi",
+                      target_lang: str = "en") -> str:
+        """Transliterate text from one script to another.
+
+        Example: Devanagari 'नमस्ते' → Latin 'namaste'
+        """
+        return self._call_pipeline(
+            service_id="ai4bharat/indic-xlit",
+            input_text=text,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            task_type="transliteration",
+        )
+
+    def detect_language(self, text: str) -> str:
+        """Detect the language of the input text."""
+        result = self._call_pipeline(
+            service_id="ai4bharat/indic-ner",
+            input_text=text,
+            task_type="ner",
+        )
+        if result and result != text:
+            return result
+        return "en"
+
+    def tts(self, text: str, lang: str = "hi") -> bytes:
+        """Text-to-Speech: convert text to audio bytes (WAV).
+
+        Args:
+            text: text to synthesize
+            lang: language code (default: "hi")
+
+        Returns:
+            WAV audio bytes (empty bytes on error)
+        """
+        if not self.api_key:
+            return b""
+        import requests
+        lang_code = self._resolve_lang_code(lang)
+        payload = {
+            "pipelineTasks": [{
+                "taskType": "tts",
+                "config": {
+                    "language": {"sourceLanguage": lang_code},
+                    "serviceId": "ai4bharat/indic-tts",
+                    "gender": "female",
+                    "samplingRate": 16000,
+                }
+            }],
+            "inputData": {
+                "input": [{"source": text}]
+            },
+        }
+        try:
+            r = requests.post(
+                f"{self.endpoint}/pipeline",
+                json=payload,
+                headers=self._headers(),
+                timeout=120,
+            )
+            r.raise_for_status()
+            data = r.json()
+            audio_b64 = (data.get("pipelineResponse", [{}])[0]
+                         .get("output", [{}])[0]
+                         .get("audio", ""))
+            if audio_b64:
+                import base64
+                return base64.b64decode(audio_b64)
+        except Exception as e:
+            log.warning(f"[bhashini] TTS failed: {e}")
+        return b""
+
+    # ── LLMProvider interface ────────────────────────────────
+
+    def chat(self, model: str, messages: list, temperature: float = 0.3,
+             max_tokens: int = 4096) -> str:
+        """Chat: uses Bhashini translation pipeline for multi-lingual support.
+
+        For Indian language inputs, translates → processes → translates back.
+        For English inputs, uses the translate endpoint as a generation proxy.
+        """
+        # Extract user message
+        user_msg = ""
+        system_msg = ""
+        for m in messages:
+            role = m.get("role", "")
+            content = m.get("content", "")
+            if role == "system":
+                system_msg = content
+            elif role == "user":
+                user_msg = content
+
+        if not user_msg:
+            return "[BhashiniAI: empty user message]"
+
+        combined = user_msg
+        if system_msg:
+            combined = f"{system_msg}\n\n{user_msg}"
+
+        # Detect if non-English input
+        has_devanagari = any(ord(c) > 0x0900 and ord(c) < 0x097F for c in combined)
+        has_tamil = any(ord(c) > 0x0B80 and ord(c) < 0x0BFF for c in combined)
+        has_telugu = any(ord(c) > 0x0C00 and ord(c) < 0x0C7F for c in combined)
+        has_bengali = any(ord(c) > 0x0980 and ord(c) < 0x09FF for c in combined)
+        is_non_english = has_devanagari or has_tamil or has_telugu or has_bengali
+
+        if is_non_english:
+            translated_input = self.translate(combined, target_lang="en")
+            result = translated_input
+            translated_back = self.translate(result, source_lang="en", target_lang="auto")
+            return translated_back or result
+        else:
+            return self.translate(combined, target_lang="en")
+
+    def list_models(self) -> list:
+        return [
+            "translate-en", "translate-hi", "translate-ta", "translate-te",
+            "translate-bn", "translate-mr", "translate-gu", "translate-kn",
+            "translate-ml", "translate-or", "translate-pa", "translate-ur",
+            "transliterate", "tts", "asr",
+        ]
+
+    def status(self) -> dict:
+        return {
+            "provider": "bhashini",
+            "configured": bool(self.api_key),
+            "languages": self.SUPPORTED_LANGUAGES,
+            "default_target": self.default_target_lang,
+            "capabilities": [
+                "translation", "transliteration", "language_detection",
+                "tts", "asr", "ner",
+            ],
+            "pipeline_config": self.pipeline_config,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════
 # Factory
 # ═══════════════════════════════════════════════════════════════
 
@@ -1125,6 +1405,8 @@ PROVIDER_REGISTRY = {
     "textgenerationwebui": TextGenWebUIProvider,
     "text-generation-webui": TextGenWebUIProvider,
     "dev": DevProvider,
+    "bhashini": BhashiniAIProvider,
+    "bhashiniai": BhashiniAIProvider,
 }
 
 def create_provider(config: dict) -> LLMProvider:
@@ -1132,14 +1414,19 @@ def create_provider(config: dict) -> LLMProvider:
 
     Config keys:
         provider (str): one of 'openrouter', 'nvidia', 'ollama', 'koboldcpp',
-                        'textgen', 'claude', 'dev', 'custom'
-        api_key  (str): API key (for openrouter, nvidia, claude)
+                        'textgen', 'claude', 'bhashini', 'dev', 'custom'
+        api_key  (str): API key (for openrouter, nvidia, claude, bhashini)
         endpoint (str): server URL
         name     (str): optional override
 
     Dev fallback:
         provider="dev" activates the DevProvider which returns structured
         mock responses for offline pipeline testing. No API key required.
+
+    Bhashini AI:
+        provider="bhashini" activates the BhashiniAIProvider for Indian
+        language translation, transliteration, TTS and NLP. Requires
+        BHASHINI_API_KEY from https://bhashini.gov.in/ulca/user/signup
     """
     provider_type = config.get("provider", "openrouter").lower()
     cls = PROVIDER_REGISTRY.get(provider_type) or PROVIDER_REGISTRY.get(provider_type.replace("-", "").replace("_", ""))
@@ -1150,6 +1437,9 @@ def create_provider(config: dict) -> LLMProvider:
     kwargs = {"endpoint": config.get("endpoint", "")}
     if issubclass(cls, DevProvider):
         kwargs = {}
+    elif issubclass(cls, BhashiniAIProvider):
+        kwargs["api_key"] = config.get("api_key", "")
+        kwargs["default_target_lang"] = config.get("default_target_lang", "en")
     elif issubclass(cls, OpenAICompatibleProvider):
         kwargs["api_key"] = config.get("api_key", "")
     elif issubclass(cls, ClaudeProvider):

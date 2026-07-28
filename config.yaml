@@ -1,7 +1,7 @@
-# Collabuild MAS — Configuration
+# Collabuild MAS — Configuration v1.0.0
 # ========================================
 # Provider switching: set `pipeline.provider` to one of:
-#   openrouter | nvidia | claude | ollama | koboldcpp | textgen | custom
+#   openrouter | nvidia | claude | ollama | koboldcpp | textgen | bhashini | custom
 # ========================================
 
 providers:
@@ -36,6 +36,14 @@ providers:
     endpoint: ""
     api_key: ""
     model: ""
+
+  # Bhashini AI — Indian language translation & NLP (भाषिणी)
+  # API key: https://bhashini.gov.in/ulca/user/signup
+  bhashini:
+    endpoint: "https://nlp.ulcai.com/api/v1"
+    api_key: "${BHASHINI_API_KEY}"
+    model: "translate-en"
+    default_target_lang: "en"
 
 # Baidu OCR — Unlimited document parsing + general OCR
 # Free tiers:

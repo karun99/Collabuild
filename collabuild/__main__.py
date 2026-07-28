@@ -86,7 +86,7 @@ def main():
     parser = argparse.ArgumentParser(description="Collabuild MAS Pipeline")
     parser.add_argument("--paper", type=str, default="", help="Research paper text")
     parser.add_argument("--paper-file", type=str, default="", help="Path to paper txt file")
-    parser.add_argument("--provider", type=str, default="", choices=["", "openrouter", "nvidia", "ollama", "koboldcpp", "textgen", "claude", "dev"],
+    parser.add_argument("--provider", type=str, default="", choices=["", "openrouter", "nvidia", "ollama", "koboldcpp", "textgen", "claude", "bhashini", "dev"],
                         help="LLM provider to use (default: from config.yaml or openrouter)")
     parser.add_argument("--dev", action="store_true", help="Dev mode: use DevProvider (offline, no API key needed)")
     parser.add_argument("--model", type=str, default="", help="Model name (provider-dependent)")

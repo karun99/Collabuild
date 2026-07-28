@@ -30,7 +30,7 @@ log = logging.getLogger("collabuild.web")
 HERE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 
-app = FastAPI(title="Collabuild MAS", version="0.3.0")
+app = FastAPI(title="Collabuild MAS", version="1.0.0")
 
 # In-memory state
 chat_sessions: dict = {}

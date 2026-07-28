@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "collabuild-mas"
-version = "0.3.0"
+version = "1.0.0"
 description = "First-in-class fully customisable MAS: research paper to production pipeline with KoboldCPP-style chat UI, 7 LLM providers, Baidu OCR, autonomous agent runner"
 readme = "README.md"
 requires-python = ">=3.10"
