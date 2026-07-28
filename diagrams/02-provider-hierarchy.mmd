@@ -1,0 +1,72 @@
+classDiagram
+    class LLMProvider {
+        &lt;&lt;abstract&gt;&gt;
+        +name: str
+        +chat(model, messages, temperature, max_tokens) str
+        +chat_stream(model, messages, temperature, max_tokens) Iterator
+        +list_models() list
+        +chat_with_retry(model, messages, temperature, max_tokens, retries) str
+    }
+
+    class OpenAICompatibleProvider {
+        +endpoint: str
+        +api_key: str
+        +extra_headers: dict
+        +_headers() dict
+        +chat() str
+        +chat_stream() Iterator
+        +list_models() list
+    }
+
+    class OpenRouterProvider {
+        +api_key: str
+    }
+
+    class NvidiaProvider {
+        +api_key: str
+    }
+
+    class TextGenWebUIProvider {
+        +endpoint: str
+    }
+
+    class ClaudeProvider {
+        +endpoint: str
+        +api_key: str
+        +model: str
+        +_headers() dict
+        +chat() str
+        +chat_stream() Iterator
+        +list_models() list
+    }
+
+    class OllamaProvider {
+        +endpoint: str
+        +chat() str
+        +chat_stream() Iterator
+        +list_models() list
+    }
+
+    class KoboldCPPProvider {
+        +endpoint: str
+        +chat() str
+        +chat_stream() Iterator
+        +list_models() list
+    }
+
+    class DevProvider {
+        +STAGE_RESPONSES: dict
+        +DEFAULT_RESPONSE: str
+        +chat() str
+        +chat_stream() Iterator
+        +list_models() list
+    }
+
+    LLMProvider <|-- OpenAICompatibleProvider
+    LLMProvider <|-- ClaudeProvider
+    LLMProvider <|-- OllamaProvider
+    LLMProvider <|-- KoboldCPPProvider
+    LLMProvider <|-- DevProvider
+    OpenAICompatibleProvider <|-- OpenRouterProvider
+    OpenAICompatibleProvider <|-- NvidiaProvider
+    OpenAICompatibleProvider <|-- TextGenWebUIProvider

@@ -15,11 +15,16 @@ Usage:
   collabuild web                                # launch web UI
   collabuild web --dev                          # web UI with dev fallback
 """
-import os, sys, argparse, logging
+import argparse
+import logging
+import os
+import sys
+
+from . import config as cfgmod
+from .pipeline import CollabuildPipeline
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-from .pipeline import CollabuildPipeline
-from . import config as cfgmod
 
 def start_web(args):
     """Start the Collabuild Web UI server."""
@@ -100,7 +105,7 @@ def main():
     # Load paper
     paper = args.paper
     if args.paper_file and os.path.exists(args.paper_file):
-        with open(args.paper_file, "r", encoding="utf-8") as f:
+        with open(args.paper_file, encoding="utf-8") as f:
             paper = f.read()
     if not paper:
         paper = SAMPLE_PAPER
@@ -138,14 +143,14 @@ def main():
     print("\n" + "=" * 60)
     print("Generated Mermaid Diagrams:")
     print("=" * 60)
-    for name, r in results.items():
+    for _name, r in results.items():
         if r.mermaid:
             print(f"\n  [{r.stage}] ({len(r.mermaid)} chars)")
             print(f"  {r.mermaid[:120].split(chr(10))[0]}...")
 
     print("\n" + "=" * 60)
     print("Pipeline stages complete:")
-    for name, r in results.items():
+    for _name, r in results.items():
         icon = "PASS" if r.passed else "FAIL"
         print(f"  [{icon}] {r.stage}")
 

@@ -2,10 +2,15 @@
 Collabuild MAS — Multi-Agent System (CrewAI-like)
 Configurable agents with endpoint + auth for distributed AI workflows.
 """
-import json, os, time, base64, hashlib, logging
+import base64
+import json
+import logging
+import os
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 from enum import Enum
+
 import requests
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s %(message)s")
@@ -62,10 +67,10 @@ class AgentConfig:
 class Task:
     id: str = ""
     description: str = ""
-    agent: Optional[str] = None       # agent name
+    agent: str | None = None       # agent name
     context: dict = field(default_factory=dict)
     expected_output: str = ""
-    callback: Optional[Callable] = None
+    callback: Callable | None = None
     dependencies: list = field(default_factory=list)
     result: any = None
 
@@ -169,7 +174,6 @@ class OCRAgent(Agent):
     def _call_api(self, task: Task) -> str:
         image_path = task.context.get("image_path", "")
         pdf_path = task.context.get("pdf_path", "")
-        prompt = task.context.get("prompt", "document parsing.")
 
         if self.config.endpoint and "openai" in self.config.endpoint.lower():
             return self._openai_vision(task, image_path or pdf_path)

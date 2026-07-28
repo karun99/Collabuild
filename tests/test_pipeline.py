@@ -1,7 +1,6 @@
 """Tests for collabuild.pipeline — DevProvider-powered pipeline."""
 
-import pytest
-from collabuild.pipeline import CollabuildPipeline, StageResult, StageAgent
+from collabuild.pipeline import CollabuildPipeline, StageAgent, StageResult
 from collabuild.providers import DevProvider
 
 

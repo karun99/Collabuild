@@ -1,0 +1,13 @@
+flowchart LR
+    subgraph StageAgent
+        A[call system_prompt, user_prompt] --> B{provider configured?}
+        B -->|No| C[Return skip message]
+        B -->|Yes| D[provider.chat_with_retry]
+        D --> E{Success?}
+        E -->|Yes| F[Return content]
+        E -->|No| G[Log error, return error]
+        F --> H[extract_mermaid]
+        H --> I{Mermaid found?}
+        I -->|Yes| J[Use extracted mermaid]
+        I -->|No| K[Use fallback mermaid]
+    end

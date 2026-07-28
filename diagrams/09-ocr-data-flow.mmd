@@ -1,0 +1,16 @@
+flowchart LR
+    A[/"Document\n(PDF/DOC/Image)"/] --> B["BaiduOCR\n.parse_document()"]
+    B --> C["_submit_document()\nNormalize UTF-8"]
+    C --> D["POST /unlimited-ocr-parser/task"]
+    D --> E["task_id"]
+    E --> F["_poll_task()\nStatus check loop"]
+    F --> G{"Status?"}
+    G -->|success| H["markdown_url"]
+    G -->|pending| F
+    G -->|failed| I["RuntimeError"]
+    H --> J["_download_markdown()\nDecode UTF-8/16/32"]
+    J --> K[/"Markdown Text"/]
+
+    style A fill:#7aa2f7,stroke:#333,color:#fff
+    style K fill:#9ece6a,stroke:#333,color:#fff
+    style I fill:#f7768e,stroke:#333,color:#fff

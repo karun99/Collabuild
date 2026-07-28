@@ -1,7 +1,8 @@
 """Shared fixtures for Collabuild MAS tests."""
 
 import pytest
-from collabuild.providers import DevProvider, create_provider
+
+from collabuild.providers import DevProvider
 
 
 @pytest.fixture

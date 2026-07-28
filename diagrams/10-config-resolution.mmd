@@ -1,0 +1,16 @@
+flowchart TD
+    A["config.yaml"] --> B["load()"]
+    B --> C["_resolve_env()\nSubstitute ${ENV_VAR}"]
+    C --> D["get_ai_config()"]
+    D --> E["Merge: provider defaults"]
+    E --> F["Merge: chat defaults"]
+    F --> G["CLI overrides\n(--provider, --api-key, etc.)"]
+    G --> H["create_provider(config)"]
+    H --> I{"Provider type?"}
+    I -->|openrouter| J[OpenRouterProvider]
+    I -->|nvidia| K[NvidiaProvider]
+    I -->|claude| L[ClaudeProvider]
+    I -->|ollama| M[OllamaProvider]
+    I -->|koboldcpp| N[KoboldCPPProvider]
+    I -->|textgen| O[TextGenWebUIProvider]
+    I -->|dev| P[DevProvider]

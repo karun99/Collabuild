@@ -18,9 +18,12 @@ Tools available:
 All tool calls go through the agent runner — no raw LLM tool calls.
 """
 
-import json, logging, os, time, traceback
-from typing import Optional, Callable
-from dataclasses import dataclass, field, asdict
+import json
+import logging
+import time
+import traceback
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 log = logging.getLogger("research.agent")
 
@@ -281,7 +284,8 @@ Always be thorough. Check multiple sources when possible. Cite your sources."""
         if not code:
             return "[Error: code parameter required]"
         # Sandboxed exec — limited builtins
-        import io, contextlib
+        import contextlib
+        import io
         stdout = io.StringIO()
         stderr = io.StringIO()
         safe_builtins = {

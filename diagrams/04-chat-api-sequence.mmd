@@ -1,0 +1,27 @@
+sequenceDiagram
+    actor User
+    participant Browser
+    participant FastAPI
+    participant Provider
+    participant LLM
+
+    User->>Browser: Type message and send
+    Browser->>FastAPI: POST /api/chat
+    Note right of FastAPI: {messages, model, provider}
+    FastAPI->>FastAPI: Build messages with system prompt
+    FastAPI->>Provider: create_provider(settings)
+    Provider-->>FastAPI: LLMProvider instance
+
+    loop Streaming (SSE)
+        Provider->>LLM: chat_stream(model, messages)
+        loop Each token
+            LLM-->>Provider: token string
+            Provider-->>FastAPI: yield token
+            FastAPI-->>Browser: event: token / data: {token}
+        end
+        LLM-->>Provider: [DONE]
+        Provider-->>FastAPI: yield ""
+    end
+
+    FastAPI-->>Browser: event: done / data:
+    Browser-->>User: Render streamed response

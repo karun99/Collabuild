@@ -1,10 +1,6 @@
 """Tests for collabuild.config — YAML loading and env var resolution."""
 
-import os
-import pytest
-import tempfile
-import yaml
-from collabuild.config import load, get_provider_config, get_pipeline_config
+from collabuild.config import get_pipeline_config, get_provider_config, load
 
 
 class TestLoad:

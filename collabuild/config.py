@@ -4,7 +4,9 @@ Loads config.yaml from the package directory (or a custom path),
 merges with environment variables, and provides typed access.
 """
 
-import os, re, logging
+import logging
+import os
+import re
 from typing import Any
 
 log = logging.getLogger("config")
@@ -47,7 +49,7 @@ def load(path: str = "") -> dict:
     path = path or CONFIG_PATH
     try:
         import yaml
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
     except FileNotFoundError:
         log.warning("Config not found at %s, using defaults", path)

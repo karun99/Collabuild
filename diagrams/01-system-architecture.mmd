@@ -1,0 +1,53 @@
+graph TB
+    subgraph "Browser (Web UI)"
+        UI[Chat Interface]
+        SP[Settings Panel]
+        PL[Pipeline Runner]
+        TL[Research Tools]
+    end
+
+    subgraph "FastAPI Backend"
+        API["/api/chat (SSE)"]
+        ST["/api/settings"]
+        MD["/api/models"]
+        PW["/api/pipeline/*"]
+        TL_API["/api/tools/*"]
+    end
+
+    subgraph "LLM Providers"
+        OR[OpenRouter]
+        NV[NVIDIA Build]
+        CL[Claude]
+        OL[Ollama]
+        KC[KoboldCPP]
+        TG[text-gen-webui]
+        DV[DevProvider]
+    end
+
+    subgraph "Research Tools"
+        OCR[Baidu OCR]
+        WF[Web Fetcher]
+        AR[Agent Runner]
+    end
+
+    subgraph "Pipeline Stages"
+        P1[Paper Analysis]
+        P2[SRS Generation]
+        P3[Module Design]
+        P4[User Flow Design]
+        P5[SDLC Plan]
+        P6[Code Generation]
+        P7[Debugging & Review]
+        P8[Deployment Plan]
+        P9[Final Review]
+    end
+
+    UI --> API
+    SP --> ST
+    PL --> PW
+    TL --> TL_API
+
+    API --> OR & NV & CL & OL & KC & TG & DV
+    PW --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8 --> P9
+
+    TL_API --> OCR & WF & AR

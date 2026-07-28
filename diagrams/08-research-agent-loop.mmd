@@ -1,0 +1,17 @@
+flowchart TD
+    A[/"User Task"/] --> B["Initialize AgentRunner"]
+    B --> C["LLM: Analyze task"]
+    C --> D{"Has tool_calls?"}
+    D -->|Yes| E["Execute tools\n(web_fetch, ocr, python)"]
+    E --> F["Feed results back to LLM"]
+    F --> C
+    D -->|No| G{"Has output?"}
+    G -->|Yes| H[/"Final Answer"/]
+    G -->|No| I{Steps < max?}
+    I -->|Yes| C
+    I -->|No| J["Force synthesis"]
+    J --> H
+
+    style A fill:#7aa2f7,stroke:#333,color:#fff
+    style H fill:#9ece6a,stroke:#333,color:#fff
+    style E fill:#e0af68,stroke:#333,color:#fff

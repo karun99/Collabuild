@@ -1,10 +1,13 @@
 """Tests for collabuild.providers — DevProvider and factory."""
 
-import pytest
 from collabuild.providers import (
-    DevProvider, create_provider, LLMProvider, OpenRouterProvider,
-    NvidiaProvider, OllamaProvider, KoboldCPPProvider, ClaudeProvider,
-    PROVIDER_REGISTRY, messages_to_prompt,
+    PROVIDER_REGISTRY,
+    ClaudeProvider,
+    DevProvider,
+    NvidiaProvider,
+    OpenRouterProvider,
+    create_provider,
+    messages_to_prompt,
 )
 
 

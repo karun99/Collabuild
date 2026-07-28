@@ -4,23 +4,25 @@ Chat interface with local model support (GGUF/GGML), Ollama, KoboldCPP,
 OpenRouter, NVIDIA Build, and custom OpenAI-compatible endpoints.
 """
 
-import asyncio, json, logging, os, uuid, time
+import asyncio
+import json
+import logging
+import uuid
 from pathlib import Path
-from typing import Optional
 
-from fastapi import FastAPI, Request, Form, UploadFile, File, BackgroundTasks
-from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 
-from ..providers import (
-    create_provider, discover_local_models, LLMProvider,
-    OpenRouterProvider, NvidiaProvider, OllamaProvider, KoboldCPPProvider,
-    ClaudeProvider, PROVIDER_REGISTRY,
-)
 from .. import config as cfgmod
+from ..providers import (
+    PROVIDER_REGISTRY,
+    LLMProvider,
+    create_provider,
+    discover_local_models,
+)
 
 log = logging.getLogger("collabuild.web")
 
@@ -352,7 +354,6 @@ async def _run_pipeline_bg(run_id: str, paper: str, provider_name: str, model: s
         provider = _get_provider(settings)
         pipeline = CollabuildPipeline(provider=provider, model=model or "")
 
-        original_run = pipeline.run
         def progress_run(paper_text):
             stage_names = [
                 ("paper_analysis", "Paper Analysis"), ("srs", "SRS Generation"),
@@ -370,9 +371,7 @@ async def _run_pipeline_bg(run_id: str, paper: str, provider_name: str, model: s
                 stage = pipeline.stages[key]
                 if key == "paper_analysis":
                     r = stage.run(paper_text)
-                elif key == "srs":
-                    r = stage.run(prev)
-                elif key in ("module_design", "user_flow"):
+                elif key == "srs" or key in ("module_design", "user_flow"):
                     r = stage.run(prev)
                 elif key == "sdlc_plan":
                     r = stage.run(results.get("module_design", ""), results.get("user_flow", ""))

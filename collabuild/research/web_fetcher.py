@@ -10,8 +10,14 @@ Fetches URLs, extracts clean text content, handles:
 No external dependencies — stdlib only.
 """
 
-import html.parser, logging, re, time, urllib.error, urllib.parse, urllib.request
-from typing import Optional
+import contextlib
+import html.parser
+import logging
+import re
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections import OrderedDict
 
 log = logging.getLogger("research.fetcher")
@@ -205,18 +211,14 @@ class WebFetcher:
             html_text = body.decode("latin-1", errors="replace")
 
         meta = _HTMLMetaExtractor()
-        try:
+        with contextlib.suppress(Exception):
             meta.feed(html_text)
-        except Exception:
-            pass
         result["title"] = meta.title.strip()
         result["description"] = meta.description.strip()
 
         extractor = _HTMLTextExtractor()
-        try:
+        with contextlib.suppress(Exception):
             extractor.feed(html_text)
-        except Exception:
-            pass
         result["text"] = extractor.get_text()
         result["word_count"] = len(result["text"].split())
 
@@ -257,10 +259,8 @@ class WebFetcher:
     def extract_text(self, html: str) -> str:
         """Extract clean text from raw HTML string."""
         extractor = _HTMLTextExtractor()
-        try:
+        with contextlib.suppress(Exception):
             extractor.feed(html)
-        except Exception:
-            pass
         return extractor.get_text()
 
     def summarize(self, text: str, max_words: int = 500) -> str:
@@ -269,7 +269,7 @@ class WebFetcher:
         if len(words) <= max_words:
             return text
         truncated = " ".join(words[:max_words])
-        return truncated + "\n\n[... truncated, {} total words]".format(len(words))
+        return truncated + f"\n\n[... truncated, {len(words)} total words]"
 
     def _cache_put(self, url: str, result: dict):
         if len(self._cache) >= self._cache_max:

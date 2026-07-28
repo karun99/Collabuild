@@ -1,8 +1,12 @@
 """LLM providers for Collabuild MAS — OpenRouter, NVIDIA Build, Ollama, KoboldCPP, text-generation-webui."""
 
-import json, logging, os, time, glob
+import glob
+import json
+import logging
+import os
+import time
 from abc import ABC, abstractmethod
-from typing import Optional, Iterator
+from collections.abc import Iterator
 
 log = logging.getLogger("providers")
 

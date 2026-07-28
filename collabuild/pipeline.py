@@ -3,11 +3,13 @@ Collabuild MAS — Research Paper → Full-Stack Delivery Pipeline
 Each stage is a configurable agent using any LLM provider (OpenRouter, Ollama, KoboldCPP, text-generation-webui).
 Generates Mermaid UML diagrams at every stage.
 """
-import os, json, re, time, logging
+import json
+import logging
+import re
 from dataclasses import dataclass, field
-from typing import Optional
-from .providers import LLMProvider, create_provider
+
 from . import config as cfgmod
+from .providers import LLMProvider, create_provider
 
 log = logging.getLogger("pipeline")
 
@@ -26,7 +28,7 @@ class StageResult:
 
 class StageAgent:
     """Configurable agent for a pipeline stage — uses an LLMProvider."""
-    def __init__(self, name: str, role: str, provider: Optional[LLMProvider] = None,
+    def __init__(self, name: str, role: str, provider: LLMProvider | None = None,
                  model: str = "", temperature: float = 0.3, max_tokens: int = 4096):
         self.name = name
         self.role = role
@@ -363,7 +365,7 @@ Pipeline summary:
 # ═══════════════════════════════════════════════════════════════
 
 class CollabuildPipeline:
-    def __init__(self, provider: Optional[LLMProvider] = None, model: str = "",
+    def __init__(self, provider: LLMProvider | None = None, model: str = "",
                  api_key: str = "", endpoint: str = ""):
         if provider:
             self.provider = provider
@@ -455,7 +457,7 @@ class CollabuildPipeline:
 
     def report(self) -> str:
         lines = ["# Collabuild MAS — Pipeline Report", ""]
-        for name, r in self.results.items():
+        for _name, r in self.results.items():
             title = r.stage
             lines.append(f"## {title}")
             lines.append(f"**Agent:** {r.agent}  ")

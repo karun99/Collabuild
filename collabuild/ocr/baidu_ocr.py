@@ -19,7 +19,12 @@ Auth: OAuth2 client_credentials → access_token
 All calls: stdlib + requests only (no SDK dependency).
 """
 
-import base64, json, logging, os, threading, time
+import base64
+import logging
+import os
+import threading
+import time
+
 import requests as _req
 
 log = logging.getLogger("ocr.baidu")
@@ -399,7 +404,7 @@ class BaiduOCR:
 
         for fp, tid in task_ids:
             if tid is None:
-                results.append((fp, f"[SUBMIT FAILED]"))
+                results.append((fp, "[SUBMIT FAILED]"))
                 continue
             try:
                 result = self._poll_task(tid)
