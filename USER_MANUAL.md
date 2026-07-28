@@ -1,6 +1,6 @@
 # Collabuild MAS — User Manual
 
-**Version:** 0.3.0
+**Version:** 1.0.0
 **Author:** [Sai Karun Nandipati](https://karun99.github.io)
 
 ---
@@ -66,7 +66,7 @@ docker compose up -d
 
 ```bash
 collabuild --version
-# Should print: collabuild v0.3.0
+# Should print: collabuild v1.0.0
 ```
 
 ---
@@ -176,6 +176,21 @@ The chat interface has three main areas:
 2. Create an account and get an API key
 3. Select "claude" as provider
 4. Enter your API key
+
+#### Bhashini AI (Indian Languages)
+
+1. Go to [bhashini.gov.in](https://bhashini.gov.in/ulca/user/signup)
+2. Sign up and get a ULCA API key
+3. Select "bhashini" as provider
+4. Enter your API key
+5. Supports 22+ Indian languages: Hindi, Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada, Malayalam, Odia, Punjabi, Urdu, Sanskrit, and more
+
+**Features:**
+- Machine translation (any Indian language ↔ English)
+- Transliteration (script conversion, e.g., Devanagari → Latin)
+- Text-to-Speech (TTS) in multiple Indian languages
+- Language detection (auto-detect input language)
+- ASR (Automatic Speech Recognition)
 
 ### Local Providers
 
@@ -317,6 +332,10 @@ Access research tools at `/tools` or click **Tools** in the sidebar.
 - `ocr_file` — OCR a document file
 - `ocr_image` — OCR an image file
 - `python_exec` — Execute Python code in a sandbox
+- `search` — Web search (placeholder)
+- **OCR AgentRunner** — `create_ocr_agent_runner()` factory wires BaiduOCR into the agent for autonomous OCR workflows
+- **DocumentAnalyzer** — AgentRunner-powered analysis of parsed document content
+- **QualityChecker** — AgentRunner-based automated QA for OCR outputs
 
 ---
 
@@ -358,7 +377,7 @@ collabuild --config /path/to/config.yaml
 
 | Flag | Description |
 |------|-------------|
-| `--provider` | LLM provider (openrouter, nvidia, claude, ollama, koboldcpp, textgen, dev) |
+| `--provider` | LLM provider (openrouter, nvidia, claude, ollama, koboldcpp, textgen, bhashini, dev) |
 | `--model` | Model name |
 | `--api-key` | API key |
 | `--endpoint` | Provider endpoint URL |
@@ -409,6 +428,7 @@ The `docker-compose.yml` includes:
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key |
 | `BAIDU_OCR_API_KEY` | Baidu OCR API key |
 | `BAIDU_OCR_SECRET_KEY` | Baidu OCR secret key |
+| `BHASHINI_API_KEY` | Bhashini AI API key |
 
 ### Custom Docker Build
 

@@ -1,6 +1,6 @@
-# Collabuild MAS v0.3
+# Collabuild MAS v1.0
 
-Multi-Agent System with a KoboldCPP-style web UI. Chat with AI models running locally or via cloud APIs — OpenRouter, NVIDIA Build, Anthropic Claude, Ollama, KoboldCPP, text-generation-webui, and any OpenAI-compatible endpoint. Includes a 9-stage research paper to production pipeline with full dev fallback for offline testing.
+Multi-Agent System with a KoboldCPP-style web UI. Chat with AI models running locally or via cloud APIs — OpenRouter, NVIDIA Build, Anthropic Claude, Ollama, KoboldCPP, text-generation-webui, Bhashini AI, and any OpenAI-compatible endpoint. Includes a 9-stage research paper to production pipeline with full dev fallback for offline testing, autonomous agent-runner with tool use, and Indian language NLP via Bhashini AI (भाषिणी).
 
 **Author:** [Sai Karun Nandipati](https://karun99.github.io)
 
@@ -37,6 +37,7 @@ graph TB
         OL[Ollama]
         KC[KoboldCPP]
         TG[text-gen-webui]
+        BH[Bhashini AI]
         DV[DevProvider]
     end
 
@@ -46,12 +47,20 @@ graph TB
         AR[Agent Runner]
     end
 
+    subgraph "Agent Runner Integration"
+        ARA[OCR AgentRunner]
+        DAD[DocumentAnalyzer]
+        QCK[QualityChecker]
+    end
+
     UI --> API
     SP --> ST
     PL --> PW
     TL --> TL_API
-    API --> OR & NV & CL & OL & KC & TG & DV
+    API --> OR & NV & CL & OL & KC & TG & BH & DV
     TL_API --> OCR & WF & AR
+    AR --> ARA & DAD & QCK
+    ARA --> OCR
 ```
 
 ---
@@ -106,7 +115,7 @@ docker run -p 8080:8080 \
 ### Quick Verify
 
 ```bash
-# Should print "0.3.0"
+# Should print "1.0.0"
 python3 -c "import collabuild; print(collabuild.__version__)"
 
 # Run tests
@@ -149,6 +158,7 @@ In the sidebar, select a provider and enter your settings:
 | **Ollama** | Run `ollama serve` locally (auto-detected) | Yes (local) |
 | **KoboldCPP** | Run KoboldCPP server locally (port 5001) | Yes (local) |
 | **text-gen-webui** | Run oobabooga locally (port 5000) | Yes (local) |
+| **Bhashini AI** | API key from [bhashini.gov.in](https://bhashini.gov.in/ulca/user/signup) | Yes (Indian languages) |
 | **Dev** | No API key needed (offline mock) | Yes |
 
 ### 4. Start Chatting
@@ -171,7 +181,7 @@ collabuild --provider openrouter --paper-file paper.txt --output report.md
 collabuild --provider nvidia --api-key $NVIDIA_API_KEY --paper "My paper..."
 
 # All flags
-collabuild --provider {openrouter,nvidia,claude,ollama,koboldcpp,textgen,dev}
+collabuild --provider {openrouter,nvidia,claude,ollama,koboldcpp,textgen,bhashini,dev}
 collabuild --model <model-name>
 collabuild --api-key <key>
 collabuild --endpoint <url>
@@ -235,6 +245,21 @@ python server.py --api --listen --port 5000
 
 - **Endpoint:** `http://localhost:5000`
 
+### Bhashini AI (भाषिणी)
+
+Indian language translation, transliteration, TTS, and NLP for 22+ languages.
+
+```bash
+# Get API key: https://bhashini.gov.in/ulca/user/signup
+export BHASHINI_API_KEY=your-key-here
+```
+
+- **Endpoint:** `https://nlp.ulcai.com/api/v1`
+- **Auth:** `BHASHINI_API_KEY` env var
+- **Services:** Translation (hi, ta, te, bn, mr, gu, kn, ml, or, pa, ur + more), transliteration, TTS, ASR, language detection
+- **Supported languages:** 24 Indian languages including Hindi, Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada, Malayalam, Odia, Punjabi, Urdu, Sanskrit, and more
+- **Chat:** Auto-detects non-English input (Devanagari, Tamil, Telugu, Bengali scripts) and translates through IndicTrans v2 pipeline
+
 ---
 
 ## Configuration
@@ -251,6 +276,7 @@ cp .env.example .env
 | `OPENROUTER_API_KEY` | OpenRouter | API key |
 | `NVIDIA_API_KEY` | NVIDIA Build | API key |
 | `ANTHROPIC_API_KEY` | Claude | API key |
+| `BHASHINI_API_KEY` | Bhashini AI | API key |
 | `BAIDU_OCR_API_KEY` | Baidu OCR | API key |
 | `BAIDU_OCR_SECRET_KEY` | Baidu OCR | Secret key |
 
@@ -324,13 +350,15 @@ See [UML.md](UML.md) for all 13 architecture diagrams:
 ```
 Collabuild/
 ├── collabuild/
-│   ├── __init__.py          # Package exports (v0.3.0)
+│   ├── __init__.py          # Package exports (v1.0.0)
 │   ├── __main__.py          # CLI entry point
 │   ├── config.py            # YAML config + env var resolution
-│   ├── providers.py         # LLM providers (7+)
+│   ├── providers.py         # LLM providers (8+: OpenRouter, NVIDIA, Claude, Ollama, KoboldCPP, textgen, Bhashini AI, Dev)
 │   ├── mas.py               # Multi-Agent System (Agent, Crew, Task)
 │   ├── pipeline.py          # 9-stage pipeline
-│   ├── ocr/baidu_ocr.py     # Baidu OCR (Unlimited + General)
+│   ├── ocr/
+│   │   ├── __init__.py      # OCR module + agent-runner factory
+│   │   └── baidu_ocr.py     # Baidu OCR (Unlimited + General)
 │   ├── research/
 │   │   ├── web_fetcher.py   # URL fetching + text extraction
 │   │   └── agent_runner.py  # Autonomous research agent
@@ -398,8 +426,8 @@ collabuild web --host 0.0.0.0 --port 8080
 Push to `main` or create a version tag to trigger GitHub Actions:
 
 ```bash
-git tag v0.3.0
-git push origin v0.3.0    # Triggers PyPI publish
+git tag v1.0.0
+git push origin v1.0.0    # Triggers PyPI publish
 ```
 
 ---

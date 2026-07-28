@@ -47,10 +47,10 @@ Collabuild/
 │   ├── __init__.py          # Package exports
 │   ├── __main__.py          # CLI entry point
 │   ├── config.py            # YAML config + env var resolution
-│   ├── providers.py         # LLM providers (OpenRouter, NVIDIA, Claude, Ollama, etc.)
-│   ├── mas.py               # Multi-Agent System (Agent, Crew, Task)
+│   ├── providers.py         # LLM providers (8+: OpenRouter, NVIDIA, Claude, Ollama, KoboldCPP, textgen, Bhashini AI, Dev)
+│   ├── mas.py               # Multi-Agent System (Agent, Crew, Task, AgentRunnerAgent)
 │   ├── pipeline.py          # 9-stage research pipeline
-│   ├── ocr/                 # Baidu OCR integration
+│   ├── ocr/                 # Baidu OCR integration + agent-runner factory
 │   ├── research/            # Web fetcher + agent runner
 │   └── web/                 # FastAPI web UI
 │       ├── app.py
@@ -115,6 +115,8 @@ git push origin feature/your-feature-name
 Then create a Pull Request on GitHub.
 
 ## Adding a New LLM Provider
+
+*For reference, see the `BhashiniAIProvider` implementation in `collabuild/providers.py:1077` as a complete example of a non-OpenAI provider with translation, TTS, and custom pipeline APIs.*
 
 1. In `collabuild/providers.py`, create a new class inheriting from `LLMProvider` or `OpenAICompatibleProvider`:
 

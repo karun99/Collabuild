@@ -1,6 +1,6 @@
 # Collabuild MAS — Application Documentation
 
-**Version:** 0.3.0
+**Version:** 1.0.0
 **Author:** [Sai Karun Nandipati](https://karun99.github.io)
 **License:** MIT
 
@@ -32,7 +32,7 @@ Collabuild MAS is a first-in-class fully customisable Multi-Agent System that br
 
 - **KoboldCPP-style chat UI** for conversing with AI models (local and cloud)
 - **9-stage research paper to production pipeline** that transforms academic papers into deployable systems
-- **7 LLM provider integrations** (OpenRouter, NVIDIA, Claude, Ollama, KoboldCPP, text-generation-webui, custom)
+- **8 LLM provider integrations** (OpenRouter, NVIDIA, Claude, Ollama, KoboldCPP, text-generation-webui, Bhashini AI, custom)
 - **Baidu OCR integration** for document parsing (Unlimited-OCR + general OCR)
 - **Autonomous research agent** with tool use (web fetch, OCR, code execution)
 - **Dev fallback mechanism** for offline testing and pipeline verification
@@ -77,9 +77,9 @@ Collabuild MAS is a first-in-class fully customisable Multi-Agent System that br
 └──────────┘ └─────────┘ └─────────┘ └─────────┘
        │            │            │            │
 ┌──────▼──┐ ┌──────▼──┐ ┌──────▼──┐ ┌──────▼──┐
-│KoboldCPP│ │ textgen  │ │  Dev    │ │ Custom  │
-│ (local) │ │ (local)  │ │ (mock)  │ │ (any)   │
-└──────────┘ └─────────┘ └─────────┘ └─────────┘
+│KoboldCPP│ │ textgen  │ │Bhashini │ │  Dev    │ │ Custom  │
+│ (local) │ │ (local)  │ │ (Indian) │ │ (mock)  │ │ (any)   │
+└──────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
 ```
 
 ### Module Dependency Graph
@@ -89,10 +89,11 @@ collabuild/
 ├── __init__.py          → Exports pipeline, mas, providers
 ├── __main__.py          → CLI entry point, argument parsing
 ├── config.py            → YAML loading, env var resolution
-├── providers.py         → LLM provider classes + factory
-├── mas.py               → Agent, Crew, Task, OCRAgent
+├── providers.py         → LLM provider classes + factory (8 providers)
+├── mas.py               → Agent, Crew, Task, OCRAgent, AgentRunnerAgent
 ├── pipeline.py          → 9-stage pipeline orchestrator
 ├── ocr/
+│   ├── __init__.py      → OCR module + create_ocr_agent_runner()
 │   └── baidu_ocr.py     → Baidu OCR client
 ├── research/
 │   ├── web_fetcher.py   → HTML/text content extractor
@@ -121,6 +122,7 @@ LLMProvider (ABC)
 ├── ClaudeProvider              (api.anthropic.com)
 ├── OllamaProvider              (localhost:11434)
 ├── KoboldCPPProvider           (localhost:5001)
+├── BhashiniAIProvider          (nlp.ulcai.com — Indian languages)
 └── DevProvider                 (offline mock)
 ```
 
@@ -190,6 +192,9 @@ A CrewAI-like framework for configuring and running AI agents.
 - `Task` — Defines a unit of work with dependencies and callbacks
 - `AgentConfig` — Configuration dataclass with auth, endpoint, and model settings
 - `OCRAgent` — Specialized agent for document parsing via vision APIs
+- `AgentRunnerAgent` — Wraps the research AgentRunner for autonomous research with tool use
+- `DocumentAnalyzer` — AgentRunner-powered analysis of parsed document content
+- `QualityChecker` — AgentRunner-based automated QA for OCR outputs
 
 **Process Types:**
 
@@ -198,6 +203,19 @@ A CrewAI-like framework for configuring and running AI agents.
 | `SEQUENTIAL` | Tasks run one after another, injecting prior results |
 | `PARALLEL` | Tasks run concurrently in a thread pool |
 | `HIERARCHICAL` | A manager agent orchestrates task execution |
+
+**AgentRunner Integration:**
+
+The `Crew.kickoff_with_runner()` method dispatches all tasks through the research AgentRunner for autonomous execution with web fetch, OCR, Python exec, and search tools:
+
+```python
+from collabuild.mas import Agent, AgentConfig, Crew, Task
+from collabuild.research.agent_runner import AgentRunner
+
+crew = Crew(agents=[Agent(AgentConfig(name="researcher"))],
+            tasks=[Task(id="t1", description="Analyze document")])
+crew.kickoff_with_runner(agent_runner=AgentRunner())
+```
 
 ---
 
@@ -271,7 +289,20 @@ Any endpoint implementing the OpenAI `/v1/chat/completions` specification.
 - vLLM, llama.cpp server, LocalAI, LM Studio, etc.
 - Set endpoint URL and API key in settings
 
+### 4.8 Bhashini AI (भाषिणी)
+
+Indian language translation, transliteration, TTS, and NLP via Bhashini ULCA API.
+
+- **Endpoint:** `https://nlp.ulcai.com/api/v1`
+- **Auth:** API key (`BHASHINI_API_KEY` env var)
+- **Services:** Translation, transliteration, TTS, ASR, language detection
+- **24 supported languages:** Hindi, Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada, Malayalam, Odia, Punjabi, Urdu, Sanskrit, Assamese, Bodo, Dogri, Konkani, Kashmiri, Maithili, Manipuri, Nepali, Santali, Sindhi, English
+- **Chat interface:** Auto-detects non-English script input (Devanagari, Tamil, Telugu, Bengali) and translates through IndicTrans v2 pipeline
+- **Pipeline models:** `ai4bharat/indictrans-v2` (translation), `ai4bharat/indic-xlit` (transliteration), `ai4bharat/indic-ner` (language detection), `ai4bharat/indic-tts` (speech synthesis)
+
 ---
+
+
 
 ## 5. Pipeline System
 
@@ -406,7 +437,29 @@ When using `DevProvider`, the pipeline runs entirely offline:
 
 PDF, DOC, DOCX, PPT, PPTX, TXT, WPS, JPG, JPEG, PNG, BMP, TIF, TIFF, OFD
 
-### 7.2 Batch Processing
+### 7.2 OCR AgentRunner Integration
+
+The OCR module provides a factory function `create_ocr_agent_runner()` that wires BaiduOCR into the research AgentRunner for autonomous document processing:
+
+```python
+from collabuild.ocr import BaiduOCR, create_ocr_agent_runner
+
+# Create an OCR-enabled AgentRunner
+runner = create_ocr_agent_runner(
+    api_key="...", secret_key="...",
+    max_steps=10, timeout=300,
+)
+
+# Run an autonomous OCR research task
+result = runner.run("Extract and analyze all tables from the document at /path/to/doc.pdf")
+print(result.final_answer)
+```
+
+The runner provides these OCR tools to the agent:
+- `ocr_file` — Parse a document (PDF/DOC/image) via Baidu Unlimited-OCR
+- `ocr_image` — OCR a single image via Baidu general OCR
+
+### 7.3 Batch Processing
 
 ```python
 from collabuild.ocr.baidu_ocr import BaiduOCR
@@ -447,7 +500,7 @@ result = wf.fetch_url("https://example.com")
 
 ### 8.2 Agent Runner (`agent_runner.py`)
 
-Autonomous research agent with tool use.
+Autonomous research agent with tool use. Integrates with the MAS via `AgentRunnerAgent`, `DocumentAnalyzer`, and `QualityChecker` classes in `mas.py`.
 
 **Available Tools:**
 
@@ -466,6 +519,33 @@ Autonomous research agent with tool use.
 3. Agent executes tool calls and collects results
 4. LLM synthesizes findings
 5. Returns structured `AgentResult`
+
+**MAS Integration:**
+
+```python
+from collabuild.mas import AgentConfig, AgentRunnerAgent, Crew, Task
+from collabuild.research.agent_runner import AgentRunner
+
+runner = AgentRunner()
+agent = AgentRunnerAgent(
+    config=AgentConfig(name="research-agent", role="researcher"),
+    agent_runner=runner,
+)
+crew = Crew(
+    agents=[agent],
+    tasks=[Task(id="r1", description="Research Unlimited-OCR architecture")],
+)
+crew.kickoff_with_runner(agent_runner=runner)
+```
+
+**Factory Usage:**
+
+```python
+from collabuild.ocr import create_ocr_agent_runner
+
+# Creates AgentRunner pre-wired with BaiduOCR
+runner = create_ocr_agent_runner(api_key="...", secret_key="...")
+```
 
 ---
 
