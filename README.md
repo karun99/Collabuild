@@ -1,6 +1,8 @@
 # Collabuild MAS v1.0
 
-Multi-Agent System with a KoboldCPP-style web UI. Chat with AI models running locally or via cloud APIs — OpenRouter, NVIDIA Build, Anthropic Claude, Ollama, KoboldCPP, text-generation-webui, Bhashini AI, and any OpenAI-compatible endpoint. Includes a 10-stage research paper to production pipeline (Paper → SRS → Modules → UX → SDLC → Code → Debug → Deploy → Review → README) with full dev fallback for offline testing, **DevSRS** (materializes the drafted SRS into a runnable CLI / FastAPI web / MCP application, LangChain & AutoGen-inspired agent layer), an autonomous agent-runner with tool use, and Indian language NLP via Bhashini AI (भाषिणी).
+Collabuild MAS is a first-in-class, fully customisable **Multi-Agent System** that turns a research paper into a production-ready application — generating the Software Requirements Specification, module architecture, user flows, SDLC plan, code, debug review, deployment plan, and a GitHub-style README, then **materializing the SRS into a runnable CLI / FastAPI web / MCP application** with DevSRS.
+
+It ships with a KoboldCPP-style chat UI for 8 LLM providers (local and cloud), Baidu Unlimited-OCR document parsing, an autonomous research agent with tool use, and full offline dev-mode fallback so the entire pipeline runs with zero API keys.
 
 **Author:** [Sai Karun Nandipati](https://karun99.github.io)
 
@@ -10,9 +12,47 @@ Multi-Agent System with a KoboldCPP-style web UI. Chat with AI models running lo
 
 ---
 
+## Overview
+
+Most AI pipelines stop at "generate some code." Collabuild MAS goes the full distance: a 10-stage multi-agent pipeline that ingests a research paper and produces SRS, architecture, user flows, a sprint plan, reviewed code, deployment infrastructure, a QA report, **and** an AgentNova-style project README. A dedicated component — **DevSRS** — then turns the drafted SRS into a genuinely runnable application.
+
+Key design decisions:
+
+- **Provider agnostic** — every OpenAI-compatible endpoint works, plus native integrations for Anthropic and Bhashini AI.
+- **Offline capable** — `DevProvider` (offline mock) lets the full pipeline and DevSRS run with no network and no keys.
+- **Extensible** — add providers, pipeline stages, research tools, or new DevSRS targets with minimal code.
+- **Generative + deterministic** — LLM drafting for content, deterministic templating for the runnable DevSRS apps.
+
+---
+
+## Key Features
+
+- **10-Stage MAS Pipeline** — Paper Analysis → SRS → Module Design → User Flow → SDLC Plan → Code Generation → Debug & Review → Deployment Plan → Final Review → Project README.
+- **DevSRS — SRS → Runnable App** — builds a working **CLI**, **FastAPI web**, or **MCP server** from the drafted SRS, with a LangChain/AutoGen-inspired planner/executor agent layer and automatic smoke tests.
+- **8 LLM Providers** — OpenRouter, NVIDIA Build, Anthropic Claude, Ollama, KoboldCPP, text-generation-webui, Bhashini AI (भाषिणी), and any OpenAI-compatible endpoint.
+- **KoboldCPP-style Web UI** — streaming chat (SSE), settings panel, model discovery, pipeline runner with live progress, research tools, and a DevSRS builder.
+- **Baidu Unlimited-OCR** — one-shot long-horizon document parsing (Unlimited-OCR, General OCR, Web Image OCR, Table OCR) for research input.
+- **Autonomous Research Agent** — web fetching, OCR, and tool-use loop with step-by-step reasoning.
+- **Mermaid Diagrams Everywhere** — every pipeline stage emits Mermaid (flowcharts, sequence, class, gantt, deployment).
+- **Full Offline Dev Mode** — `--dev` runs the entire pipeline and DevSRS using built-in templates.
+
+---
+
 ## Architecture
 
-See [UML.md](UML.md) for all Mermaid diagrams (14 diagrams including class hierarchy, sequence diagrams, deployment, and more).
+```
+Browser (Web UI: Chat / Settings / Pipeline / Tools)
+        │  SSE + JSON API
+        ▼
+FastAPI Backend (collabuild/web/app.py)
+  /api/chat  /api/settings  /api/models  /api/local-models
+  /api/pipeline/*  /api/devsrs/build  /api/tools/*
+        │
+        ├──────────────┬────────────────┬───────────────────────┐
+        ▼              ▼                ▼                       ▼
+   LLM Providers  Baidu OCR     Research Agent           Multi-Agent Pipeline
+  (8 providers)  (4 OCR modes)  (fetch/OCR/tools)       (10 stages + DevSRS)
+```
 
 ```mermaid
 graph TB
@@ -27,6 +67,7 @@ graph TB
         API["/api/chat (SSE)"]
         ST["/api/settings"]
         PW["/api/pipeline/*"]
+        DSR["/api/devsrs/build"]
         TL_API["/api/tools/*"]
     end
 
@@ -47,10 +88,9 @@ graph TB
         AR[Agent Runner]
     end
 
-    subgraph "Agent Runner Integration"
-        ARA[OCR AgentRunner]
-        DAD[DocumentAnalyzer]
-        QCK[QualityChecker]
+    subgraph "Pipeline & DevSRS"
+        PIPE[10-Stage MAS Pipeline]
+        DSRS[DevSRS: SRS → CLI / Web / MCP]
     end
 
     UI --> API
@@ -59,9 +99,26 @@ graph TB
     TL --> TL_API
     API --> OR & NV & CL & OL & KC & TG & BH & DV
     TL_API --> OCR & WF & AR
-    AR --> ARA & DAD & QCK
-    ARA --> OCR
+    PW --> PIPE
+    PIPE --> DSRS
+    DSRS --> DV
 ```
+
+All 14 architecture diagrams are in [UML.md](UML.md).
+
+---
+
+## Technology Stack
+
+- **Core Language:** Python 3.10+
+- **Web Framework:** FastAPI, Uvicorn, Jinja2, SSE-Starlette
+- **Agent Framework:** Custom MAS (`Agent`, `Crew`, `Task`) inspired by CrewAI/LangChain patterns
+- **LLM Providers:** OpenRouter, NVIDIA Build, Anthropic Claude, Ollama, KoboldCPP, text-generation-webui, Bhashini AI, OpenAI-compatible
+- **OCR:** Baidu OCR SDK (Unlimited-OCR + General + Web Image + Table)
+- **DevSRS Targets:** Python CLI (argparse), FastAPI web app, MCP (Model Context Protocol) server
+- **Config:** YAML with `${ENV_VAR}` substitution
+- **CI/CD:** GitHub Actions, Docker, Docker Compose
+- **Quality:** pytest (63 tests), ruff lint
 
 ---
 
@@ -69,63 +126,39 @@ graph TB
 
 ### Prerequisites
 
-- **Python 3.10+** (check: `python3 --version`)
-- **pip** (check: `pip --version`)
-- **Git** (check: `git --version`)
-
-### From PyPI (when published)
-
-```bash
-pip install collabuild-mas[web]
-```
+- **Python 3.10+**
+- **pip**
+- **Git**
 
 ### From Source (Recommended)
 
 ```bash
-# Clone the repository
 git clone https://github.com/karun99/Collabuild.git
 cd Collabuild
 
-# Create a virtual environment (recommended)
 python3 -m venv .venv
 source .venv/bin/activate        # Linux / macOS
-# .venv\Scripts\activate         # Windows (PowerShell)
-# .venv\Scripts\activate.bat     # Windows (cmd)
+# .venv\Scripts\activate         # Windows
 
-# Install in editable mode with all extras
 pip install -e ".[web,dev,all]"
 ```
 
 ### Docker
 
 ```bash
-# Build the image
 docker build -t collabuild-mas .
 
-# Run with docker-compose (recommended)
 cp .env.example .env              # Set your API keys in .env
-docker compose up -d
-
-# Or run standalone
-docker run -p 8080:8080 \
-  -e OPENROUTER_API_KEY=sk-or-... \
-  collabuild-mas
+docker compose up -d              # or: docker run -p 8080:8080 -e OPENROUTER_API_KEY=sk-or-... collabuild-mas
 ```
 
 ### Quick Verify
 
 ```bash
-# Should print "1.0.0"
-python3 -c "import collabuild; print(collabuild.__version__)"
+python3 -c "import collabuild; print(collabuild.__version__)"   # 1.0.0
 
-# Run tests
-pytest tests/ -v
-
-# Lint
-ruff check collabuild/
-
-# Format check
-ruff format --check collabuild/
+pytest tests/ -q                  # 63 passed
+ruff check collabuild/ tests/     # All checks passed
 ```
 
 ---
@@ -136,145 +169,53 @@ ruff format --check collabuild/
 
 ```bash
 collabuild web                    # default: http://127.0.0.1:8080
+collabuild web --dev              # offline dev mode (no API key needed)
 collabuild web --port 3000        # custom port
 collabuild web --host 0.0.0.0     # bind all interfaces
-collabuild web --reload           # auto-reload on code changes
-collabuild web --dev              # offline dev mode (no API key needed)
 ```
 
-### 2. Open in Browser
-
-Navigate to `http://127.0.0.1:8080`
-
-### 3. Configure a Provider
-
-In the sidebar, select a provider and enter your settings:
+### 2. Pick a Provider
 
 | Provider | What you need | Free Tier |
 |----------|--------------|-----------|
 | **OpenRouter** | API key from [openrouter.ai](https://openrouter.ai) | Yes |
 | **NVIDIA Build** | API key from [build.nvidia.com](https://build.nvidia.com) | Yes |
 | **Claude** | API key from [console.anthropic.com](https://console.anthropic.com) | No |
-| **Ollama** | Run `ollama serve` locally (auto-detected) | Yes (local) |
-| **KoboldCPP** | Run KoboldCPP server locally (port 5001) | Yes (local) |
-| **text-gen-webui** | Run oobabooga locally (port 5000) | Yes (local) |
+| **Ollama** | `ollama serve` locally (auto-detected) | Yes (local) |
+| **KoboldCPP** | KoboldCPP server locally (port 5001) | Yes (local) |
+| **text-gen-webui** | oobabooga locally (port 5000) | Yes (local) |
 | **Bhashini AI** | API key from [bhashini.gov.in](https://bhashini.gov.in/ulca/user/signup) | Yes (Indian languages) |
 | **Dev** | No API key needed (offline mock) | Yes |
 
-### 4. Start Chatting
-
-Select a model and type your message. Responses stream in real-time.
-
----
-
-## CLI Usage
+### 3. Run the Pipeline (CLI)
 
 ```bash
-# Web UI
-collabuild web
-collabuild web --dev                              # offline mode
+# Offline demo — 10 stages, writes pipeline_report.md, README.md, SRS.md
+collabuild --dev
 
-# Pipeline via CLI
-collabuild --dev                                  # run full pipeline offline
-collabuild --provider ollama --model llama3.1
-collabuild --provider openrouter --paper-file paper.txt --output report.md
+# With a real provider
+collabuild --provider openrouter --paper-file paper.txt
+collabuild --provider ollama --model llama3.1 --paper "My paper..."
 collabuild --provider nvidia --api-key $NVIDIA_API_KEY --paper "My paper..."
 
-# Pipeline + artifacts (report, README.md, SRS.md)
-collabuild --dev --output-dir ./out --readme-file README.md --srs-file SRS.md
+# Write artifacts to a directory + build the app from the SRS
+collabuild --dev --output-dir ./out --build --target web --app-dir generated_app
+```
 
-# Pipeline + build the application from the SRS (DevSRS)
-collabuild --dev --build --target cli --app-dir generated_app
-collabuild --dev --build --target web --app-dir generated_app
-collabuild --dev --build --target mcp --app-dir generated_app
+### 4. Build an App from an SRS (DevSRS)
 
-# DevSRS standalone — build an app directly from an SRS document
+```bash
 collabuild devsrs --dev --target cli --srs-file SRS.md --output generated_app
-collabuild devsrs --provider openrouter --target web --srs "..." --output generated_app
-
-# All flags
-collabuild --provider {openrouter,nvidia,claude,ollama,koboldcpp,textgen,bhashini,dev}
-collabuild --model <model-name>
-collabuild --api-key <key>
-collabuild --endpoint <url>
-collabuild --paper <text>
-collabuild --paper-file <path>
-collabuild --output <path>           # default: pipeline_report.md
-collabuild --output-dir <path>       # artifact directory (report, README, SRS)
-collabuild --build                   # build app from SRS after pipeline
-collabuild --target {cli,web,mcp}    # DevSRS target
-collabuild --app-dir <path>          # DevSRS output directory
-collabuild --config <config.yaml>    # default: bundled config
+cd generated_app && python main.py --list
+python main.py document_upload_module --args '{"file": "a.pdf"}'
+# → {"ok": true, "feature": "Document Upload Module", "result": "[Document Upload Module] executed"}
 ```
 
----
+DevSRS targets: `cli` (argparse CLI), `web` (FastAPI + static UI, `uvicorn main:app`), `mcp` (JSON-RPC `tools/list` / `tools/call` over stdio). Each build ships `core.py` (capability registry), `agents.py` (planner/executor layer), entrypoint, `tests/`, `requirements.txt`, `.env.example`, `Dockerfile`, and `README.md` — with automatic smoke tests.
 
-## Supported Providers
+### 5. Research Tools
 
-### OpenRouter
-
-- **Endpoint:** `https://openrouter.ai/api/v1`
-- **Auth:** `OPENROUTER_API_KEY` env var
-- **Models:** Auto-fetched (200+ models: gpt-4o, claude-3.5, llama-3.1, mixtral, gemma, etc.)
-- **Streaming:** Full SSE support
-
-### NVIDIA Build
-
-- **Endpoint:** `https://integrate.api.nvidia.com/v1`
-- **Auth:** `NVIDIA_API_KEY` env var
-- **Models:** Llama 3.1, Nemotron, Mixtral, Gemma, CodeLlama, Phi-3, StarCoder
-- **Streaming:** Full SSE support
-
-### Anthropic Claude
-
-- **Endpoint:** `https://api.anthropic.com/v1`
-- **Auth:** `ANTHROPIC_API_KEY` env var
-- **Models:** claude-opus-4-8, claude-sonnet-4-20250514, claude-haiku-4-5-20251001
-- **Streaming:** SSE support
-
-### Ollama (Local)
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh    # install
-ollama pull llama3.1                               # pull model
-ollama serve                                       # start server
-```
-
-- **Endpoint:** `http://localhost:11434`
-- **Auth:** None required
-
-### KoboldCPP (Local)
-
-```bash
-# Download: https://github.com/LostRuins/koboldcpp
-./koboldcpp --model ~/models/llama-3.1-8b-instruct.Q4_K_M.gguf --port 5001
-```
-
-- **Endpoint:** `http://localhost:5001`
-
-### text-generation-webui (Local)
-
-```bash
-# https://github.com/oobabooga/text-generation-webui
-python server.py --api --listen --port 5000
-```
-
-- **Endpoint:** `http://localhost:5000`
-
-### Bhashini AI (भाषिणी)
-
-Indian language translation, transliteration, TTS, and NLP for 22+ languages.
-
-```bash
-# Get API key: https://bhashini.gov.in/ulca/user/signup
-export BHASHINI_API_KEY=your-key-here
-```
-
-- **Endpoint:** `https://nlp.ulcai.com/api/v1`
-- **Auth:** `BHASHINI_API_KEY` env var
-- **Services:** Translation (hi, ta, te, bn, mr, gu, kn, ml, or, pa, ur + more), transliteration, TTS, ASR, language detection
-- **Supported languages:** 24 Indian languages including Hindi, Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada, Malayalam, Odia, Punjabi, Urdu, Sanskrit, and more
-- **Chat:** Auto-detects non-English input (Devanagari, Tamil, Telugu, Bengali scripts) and translates through IndicTrans v2 pipeline
+Use the web UI's Tools page or the API: Baidu OCR document parsing (`/api/tools/ocr`), URL fetching (`/api/tools/web-fetch`), and the autonomous agent runner (`/api/tools/agent-run`).
 
 ---
 
@@ -283,7 +224,6 @@ export BHASHINI_API_KEY=your-key-here
 ### Environment Variables
 
 ```bash
-# Copy the example and fill in your keys
 cp .env.example .env
 ```
 
@@ -298,13 +238,9 @@ cp .env.example .env
 
 ### config.yaml
 
-Located at project root. Defines provider defaults and pipeline settings. Supports `${ENV_VAR}` substitution.
+Located at the project root. Defines provider defaults, the 10 pipeline stages (agent, temperature, description), OCR settings, web-fetcher timeouts, agent-runner limits, model search paths, chat defaults, and the `devsrs` target (`cli`/`web`/`mcp`). Supports `${ENV_VAR}` substitution.
 
----
-
-## Pipeline
-
-The 10-stage research paper to production pipeline:
+### Pipeline Stages
 
 | # | Stage | Agent | Description |
 |---|-------|-------|-------------|
@@ -319,30 +255,11 @@ The 10-stage research paper to production pipeline:
 | 9 | Final Review | FinalReviewer | QA validation |
 | 10 | Project README | ReadmeGenerator | AgentNova/GitHub-style project README |
 
-Each stage generates Mermaid diagrams. Run offline with `collabuild --dev`. The pipeline writes `pipeline_report.md`, `README.md`, and `SRS.md` to `--output-dir`.
-
----
-
-## DevSRS — SRS → Runnable App
-
-`DevSRS` materializes the drafted Software Requirements Specification into a **runnable application**, inspired by the LangChain and AutoGen agent frameworks:
-
-| Target | Output | Example |
-|--------|--------|---------|
-| `cli` | Python CLI with argparse + JSON output | `python main.py --list`, `python main.py <capability> --args '{"file":"a.pdf"}'` |
-| `web` | FastAPI web app (REST + agent kickoff) | `uvicorn main:app` → `/api/capabilities`, `/api/run/{capability}` |
-| `mcp` | MCP (Model Context Protocol) server | JSON-RPC `tools/list` + `tools/call` over stdio |
-
-Each build produces `core.py` (capability registry), `agents.py` (planner/executor agent layer), app entrypoint, `tests/`, `requirements.txt`, `.env.example`, `Dockerfile`, and a `README.md`. Smoke tests run automatically after generation (all generated Python compiles, CLI executes, MCP flow answers a `tools/call`).
-
-```bash
-collabuild devsrs --dev --target cli --srs-file SRS.md --output generated_app
-cd generated_app && python main.py --list
-```
-
 ---
 
 ## API Reference
+
+### Chat & Settings
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -350,97 +267,26 @@ cd generated_app && python main.py --list
 | `/api/chat/sync` | POST | Non-streaming chat |
 | `/api/settings` | GET/POST | Get/save settings |
 | `/api/models` | GET | List provider models |
-| `/api/local-models` | GET | Scan for .gguf/.ggml files |
+| `/api/local-models` | GET | Scan for `.gguf`/`.ggml` files |
 | `/api/providers/status` | GET | Check local provider status |
+
+### Pipeline & DevSRS
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
 | `/api/pipeline/run` | POST | Start pipeline run |
 | `/api/pipeline/{run_id}` | GET | Get run status |
 | `/api/pipeline/{run_id}/stream` | GET | SSE progress stream |
 | `/api/devsrs/build` | POST | Build an app from an SRS document (cli/web/mcp) |
-| `/api/tools/ocr` | POST | OCR a document |
+
+### Research Tools
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/tools/status` | GET | Status of all research tools |
+| `/api/tools/ocr` | POST | OCR a document via Baidu |
 | `/api/tools/web-fetch` | POST | Fetch URL content |
-| `/api/tools/agent-run` | POST | Run research agent |
-
----
-
-## UML Diagrams
-
-See [UML.md](UML.md) for all 14 architecture diagrams:
-
-1. System Architecture
-2. Provider Class Hierarchy
-3. 10-Stage Pipeline Flow
-4. Chat API Sequence Diagram
-5. Provider Selection Sequence
-6. Multi-Agent System Class Diagram
-7. Pipeline Stage Agent Flow
-8. Web Application Deployment
-9. Research Agent Loop
-10. OCR Document Processing
-11. Configuration Resolution
-12. CI/CD Pipeline
-13. Module Decomposition
-14. DevSRS Build Flow
-
----
-
-## File Structure
-
-```
-Collabuild/
-├── collabuild/
-│   ├── __init__.py          # Package exports (v1.0.0)
-│   ├── __main__.py          # CLI entry point (pipeline, web, reach, devsrs)
-│   ├── config.py            # YAML config + env var resolution
-│   ├── providers.py         # LLM providers (8+: OpenRouter, NVIDIA, Claude, Ollama, KoboldCPP, textgen, Bhashini AI, Dev)
-│   ├── mas.py               # Multi-Agent System (Agent, Crew, Task)
-│   ├── pipeline.py          # 10-stage pipeline + write_artifacts()
-│   ├── devsrs.py            # DevSRS — SRS → runnable CLI / web / MCP app
-│   ├── reach/               # Agent-Reach capability layer (channels, doctor)
-│   ├── ocr/
-│   │   ├── __init__.py      # OCR module + agent-runner factory
-│   │   └── baidu_ocr.py     # Baidu OCR (Unlimited + General)
-│   ├── research/
-│   │   ├── web_fetcher.py   # URL fetching + text extraction
-│   │   └── agent_runner.py  # Autonomous research agent
-│   └── web/
-│       ├── app.py           # FastAPI routes + API (+ /api/devsrs/build)
-│       └── templates/       # HTML templates (Tokyo Night theme)
-├── tests/                   # Test suite
-├── diagrams/                # Individual Mermaid diagram files
-├── .github/workflows/ci.yml # CI/CD pipeline
-├── config.yaml              # Default configuration
-├── pyproject.toml           # Build config + metadata
-├── Dockerfile               # Multi-stage Docker build
-├── docker-compose.yml       # Docker Compose config
-├── UML.md                   # All architecture diagrams
-├── LICENSE                  # MIT License
-├── CONTRIBUTING.md          # Contribution guide
-├── CODE_OF_CONDUCT.md       # Community standards
-└── SECURITY.md              # Security policy
-```
-
----
-
-## Development
-
-```bash
-# Install with dev extras
-pip install -e ".[web,dev,all]"
-
-# Run tests
-pytest tests/ -v
-
-# Lint
-ruff check collabuild/
-
-# Auto-fix + format
-ruff check collabuild/ --fix
-ruff format collabuild/
-
-# Dev mode (offline, no API key)
-collabuild --dev
-collabuild web --dev --reload
-```
+| `/api/tools/agent-run` | POST | Run autonomous research agent |
 
 ---
 
@@ -449,8 +295,7 @@ collabuild web --dev --reload
 ### Docker Compose (Recommended)
 
 ```bash
-cp .env.example .env
-# Edit .env with your API keys
+cp .env.example .env        # add your API keys
 docker compose up -d
 ```
 
@@ -467,8 +312,51 @@ Push to `main` or create a version tag to trigger GitHub Actions:
 
 ```bash
 git tag v1.0.0
-git push origin v1.0.0    # Triggers PyPI publish
+git push origin v1.0.0      # Triggers PyPI publish
 ```
+
+---
+
+## Security
+
+- **API keys** are read from environment variables / `.env` — never hardcoded, never committed.
+- **No secrets in generated code** — DevSRS apps ship `.env.example` placeholders only.
+- Standard supply-chain practices: pinned CI workflows, MIT-licensed open source, and an up-to-date `SECURITY.md` policy for reporting vulnerabilities.
+- Local-only providers (Ollama, KoboldCPP, textgen) bind to localhost by default; bind `0.0.0.0` only inside trusted networks.
+
+---
+
+## Performance
+
+- **Full 10-stage pipeline offline:** < 1 second with `DevProvider`.
+- **DevSRS build:** each cli/web/mcp target compiles, smoke-tests, and returns in seconds.
+- **Streaming chat:** token-by-token SSE from cloud and local providers.
+- **Baidu Unlimited-OCR:** one-shot long-horizon parsing with up to 200 pages/personal, 1000 pages/enterprise free tiers.
+
+---
+
+## Roadmap
+
+- [x] 10-stage MAS pipeline with Mermaid outputs and `write_artifacts()`
+- [x] DevSRS: SRS → CLI / FastAPI web / MCP builder with smoke tests
+- [x] 8 LLM providers + full offline dev mode
+- [x] Baidu Unlimited-OCR + autonomous research agent
+- [ ] Additional DevSRS targets (e.g., REST microservice, JS/TS SDK)
+- [ ] Plug-in pipeline stages via config
+- [ ] Evaluate generated code against a test harness at build time
+- [ ] PyPI release automation and model eval benchmark suite
+
+---
+
+## Contributing
+
+1. Fork the repository.
+2. Create a feature branch: `git checkout -b feat/your-feature`.
+3. Commit changes: `git commit -am "feat: add your feature"`.
+4. Push: `git push origin feat/your-feature`.
+5. Open a Pull Request.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ---
 
