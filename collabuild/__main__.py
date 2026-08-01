@@ -72,8 +72,122 @@ The training pipeline uses a two-stage approach: (1) Pre-training on synthetic d
 generated from PDF-to-image pipelines with ground-truth text, (2) Fine-tuning on curated
 real-world documents spanning invoices, receipts, academic papers, forms, and books."""
 
+def cmd_devsrs(argv):
+    """Build a runnable application from a drafted SRS document."""
+    parser = argparse.ArgumentParser(
+        description="DevSRS — build an application (CLI / web / MCP) from a drafted SRS document")
+    parser.add_argument("--srs", type=str, default="", help="SRS markdown text")
+    parser.add_argument("--srs-file", type=str, default="", help="Path to SRS markdown file")
+    parser.add_argument("--target", type=str, default="cli", choices=["cli", "web", "mcp"],
+                        help="Application type to build")
+    parser.add_argument("--output", type=str, default="generated_app", help="Output directory")
+    parser.add_argument("--provider", type=str, default="",
+                        choices=["", "openrouter", "nvidia", "ollama", "koboldcpp", "textgen", "claude", "bhashini", "dev"],
+                        help="LLM provider for code generation (dev = offline templates)")
+    parser.add_argument("--model", type=str, default="", help="Model name (provider-dependent)")
+    parser.add_argument("--dev", action="store_true", help="Offline mode: use template code only")
+    parser.add_argument("--no-llm", action="store_true", help="Disable LLM-enhanced code generation")
+    args = parser.parse_args(argv)
+
+    srs_text = args.srs
+    if args.srs_file and os.path.exists(args.srs_file):
+        with open(args.srs_file, encoding="utf-8") as f:
+            srs_text = f.read()
+    if not srs_text:
+        print("Provide an SRS document via --srs or --srs-file.", file=sys.stderr)
+        sys.exit(2)
+
+    provider = None
+    if args.dev or args.provider == "dev":
+        from .providers import DevProvider
+        provider = DevProvider()
+        print("[DEV] Offline mode — using template-based code generation")
+    elif args.provider:
+        ai_cfg = cfgmod.get_ai_config(cfgmod.load())
+        ai_cfg["provider"] = args.provider
+        if args.model:
+            ai_cfg["model"] = args.model
+        from .providers import create_provider
+        provider = create_provider(ai_cfg)
+
+    from .devsrs import DevSRS
+
+    builder = DevSRS(provider=provider, target=args.target, output_dir=args.output, model=args.model)
+    build = builder.build(srs_text, use_llm=not args.dev and not args.no_llm)
+
+    print(f"\nDevSRS build complete ({build['target']})")
+    print(f"Output directory: {build['output_dir']}")
+    print("Files generated:")
+    for f in build["files"]:
+        print(f"  - {f}")
+    print(f"Smoke test: {'PASS' if build['smoke_ok'] else 'FAIL'}")
+    if not build["smoke_ok"]:
+        for r in build["smoke_test"]:
+            if not r["ok"]:
+                print(f"    FAIL {r['file']}: {r.get('error')}")
+        sys.exit(1)
+
+def cmd_reach(args):
+    """Handle reach subcommands (Agent-Reach internet channels)."""
+    sub = args[0] if args else "doctor"
+
+    if sub == "doctor" or sub == "status":
+        from .reach import check_all, format_report
+
+        results = check_all()
+        print(format_report(results))
+        ok = sum(1 for r in results.values() if r["status"] == "ok")
+        sys.exit(0 if ok == len(results) else 1)
+    elif sub == "channels":
+        from .reach import get_channels
+
+        chs = get_channels()
+        print()
+        print("可用的互联网渠道：")
+        print("=" * 50)
+        for ch in chs:
+            tier_label = {0: "零配置", 1: "免费登录", 2: "手动配置"}
+            print(f"\n  {ch.name} — {ch.description}")
+            print(f"    后端: {', '.join(ch.backends)}")
+            print(f"    层级: {tier_label.get(ch.tier, '?')}")
+        print()
+    elif sub == "read" and len(args) > 1:
+        url = args[1]
+        from .reach import get_channels
+
+        for ch in get_channels():
+            if ch.can_handle(url):
+                try:
+                    print(f"\n通过 {ch.name}（{ch.active_backend or ch.backends[0]}）读取中...\n")
+                    content = ch.read(url)
+                    max_chars = 2000
+                    print(content[:max_chars])
+                    if len(content) > max_chars:
+                        print("\n[... 内容已截断]")
+                    return
+                except Exception as e:
+                    print(f"\n[{ch.name}] 读取失败：{e}")
+                    return
+        print(f"\n没有可用的渠道读取：{url}")
+    elif sub == "read" and len(args) == 1:
+        print("用法：collabuild reach read <URL>")
+    else:
+        print()
+        print("Reach（互联网渠道）命令：")
+        print("  doctor / status    查看所有渠道状态")
+        print("  channels           列出所有可用渠道")
+        print("  read <URL>         用最佳渠道读取 URL 内容")
+        print()
+
+
 def main():
     # Check for subcommand
+    if len(sys.argv) > 1 and sys.argv[1] == "reach":
+        cmd_reach(sys.argv[2:])
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "devsrs":
+        cmd_devsrs(sys.argv[2:])
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "web":
         wparser = argparse.ArgumentParser(description="Collabuild Web UI")
         wparser.add_argument("--host", type=str, default="127.0.0.1", help="Bind address")
@@ -94,7 +208,15 @@ def main():
     parser.add_argument("--endpoint", type=str, default="", help="Provider endpoint URL")
     parser.add_argument("--config", type=str, default="", help="Path to config.yaml")
     parser.add_argument("--output", type=str, default="pipeline_report.md", help="Output report file")
+    parser.add_argument("--output-dir", type=str, default=".", help="Directory for pipeline artifacts (report, README, SRS)")
+    parser.add_argument("--readme-file", type=str, default="README.md", help="Generated project README filename")
+    parser.add_argument("--srs-file", type=str, default="SRS.md", help="SRS documentation filename")
+    parser.add_argument("--build", action="store_true", help="Build the application from the SRS with DevSRS")
+    parser.add_argument("--target", type=str, default="cli", choices=["cli", "web", "mcp"],
+                        help="DevSRS application type (with --build)")
+    parser.add_argument("--app-dir", type=str, default="generated_app", help="DevSRS output directory")
     args = parser.parse_args()
+
 
     # Dev mode override
     if args.dev:
@@ -133,11 +255,30 @@ def main():
     # Run
     results = pipeline.run(paper)
 
-    # Save report
-    report = pipeline.report()
-    with open(args.output, "w", encoding="utf-8") as f:
-        f.write(report)
-    print(f"\nReport saved to {args.output}")
+    # Save artifacts: pipeline report + project README + SRS documentation
+    artifacts = pipeline.write_artifacts(
+        output_dir=args.output_dir,
+        report_file=os.path.basename(args.output),
+        readme_file=args.readme_file,
+        srs_file=args.srs_file,
+    )
+    print("\nArtifacts written:")
+    for name, path in artifacts.items():
+        print(f"  - {name}: {path}")
+
+    if args.build:
+        from .devsrs import DevSRS
+
+        srs_text = results.get("srs", None) and results["srs"].content or paper
+        if srs_text.startswith("Error:"):
+            srs_text = paper
+        builder = DevSRS(provider=pipeline.provider, target=args.target,
+                         output_dir=args.app_dir, model=pipeline.stages["code_gen"].model)
+        build = builder.build(srs_text, use_llm=not args.dev)
+        print(f"\nApplication built with DevSRS ({build['target']}): {build['output_dir']}")
+        for f in build["files"]:
+            print(f"  - {f}")
+        print(f"Smoke test: {'PASS' if build['smoke_ok'] else 'FAIL'}")
 
     # Summary
     print("\n" + "=" * 60)

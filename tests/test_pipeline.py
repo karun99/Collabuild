@@ -49,7 +49,7 @@ class TestDevPipeline:
     def test_pipeline_creation(self, dev_pipeline):
         assert dev_pipeline.provider is not None
         assert isinstance(dev_pipeline.provider, DevProvider)
-        assert len(dev_pipeline.stages) == 9
+        assert len(dev_pipeline.stages) == 10
 
     def test_pipeline_stages_all_have_provider(self, dev_pipeline):
         for name, stage in dev_pipeline.stages.items():
@@ -57,7 +57,7 @@ class TestDevPipeline:
 
     def test_full_pipeline_run(self, dev_pipeline):
         results = dev_pipeline.run("Test paper text about OCR systems.")
-        assert len(results) == 9
+        assert len(results) == 10
         assert all(isinstance(r, StageResult) for r in results.values())
 
     def test_pipeline_results_all_pass_with_dev(self, dev_pipeline):
@@ -85,9 +85,30 @@ class TestDevPipeline:
             "Paper Analysis", "SRS Generation", "Module Design",
             "User Flow Design", "SDLC Plan", "Code Generation",
             "Debugging & Review", "Deployment Plan", "Final Review",
+            "Project README",
         ]
         for stage in expected_stages:
             assert stage in report, f"Missing stage in report: {stage}"
+
+    def test_readme_stage_present_and_content(self, dev_pipeline):
+        results = dev_pipeline.run("Test paper.")
+        readme = results["readme"]
+        assert readme.passed is True
+        assert readme.stage == "Project README"
+        assert "#" in readme.content
+
+    def test_write_artifacts(self, dev_pipeline, tmp_path):
+        dev_pipeline.run("Test paper.")
+        artifacts = dev_pipeline.write_artifacts(output_dir=str(tmp_path))
+        assert "report" in artifacts
+        assert "readme" in artifacts
+        assert "srs" in artifacts
+        report_text = (tmp_path / "pipeline_report.md").read_text(encoding="utf-8")
+        readme_text = (tmp_path / "README.md").read_text(encoding="utf-8")
+        srs_text = (tmp_path / "SRS.md").read_text(encoding="utf-8")
+        assert "PASS" in report_text
+        assert "#" in readme_text
+        assert "Requirements" in srs_text
 
 
 class TestFromConfig:

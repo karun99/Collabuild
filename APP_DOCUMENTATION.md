@@ -31,7 +31,7 @@
 Collabuild MAS is a first-in-class fully customisable Multi-Agent System that bridges the gap between research papers and production-ready software. The application provides:
 
 - **KoboldCPP-style chat UI** for conversing with AI models (local and cloud)
-- **9-stage research paper to production pipeline** that transforms academic papers into deployable systems
+- **10-stage research paper to production pipeline** that transforms academic papers into deployable systems
 - **8 LLM provider integrations** (OpenRouter, NVIDIA, Claude, Ollama, KoboldCPP, text-generation-webui, Bhashini AI, custom)
 - **Baidu OCR integration** for document parsing (Unlimited-OCR + general OCR)
 - **Autonomous research agent** with tool use (web fetch, OCR, code execution)
@@ -91,7 +91,9 @@ collabuild/
 ├── config.py            → YAML loading, env var resolution
 ├── providers.py         → LLM provider classes + factory (8 providers)
 ├── mas.py               → Agent, Crew, Task, OCRAgent, AgentRunnerAgent
-├── pipeline.py          → 9-stage pipeline orchestrator
+├── pipeline.py          → 10-stage pipeline orchestrator
+├── devsrs.py            → DevSRS — SRS → runnable CLI / web / MCP app
+├── reach/               → Agent-Reach capability layer (channels, doctor)
 ├── ocr/
 │   ├── __init__.py      → OCR module + create_ocr_agent_runner()
 │   └── baidu_ocr.py     → Baidu OCR client
@@ -334,7 +336,65 @@ Paper Text → [1] Paper Analysis → Analysis + Mermaid
                                       │
                                       ▼
                                 [9] Final Review → QA Report
+                                      │
+                                      ▼
+                               [10] Project README → README.md
 ```
+
+### 5.1b DevSRS — SRS → Runnable App (`devsrs.py`)
+
+`DevSRS` converts the drafted SRS into a **runnable application**. It is a
+SRS-to-code generator inspired by the LangChain and AutoGen agent frameworks.
+
+**Pipeline:**
+
+```
+SRS.md ──parse_srs()──▶ SRSBlueprint (title, description, actors,
+                        functional/nonfunctional requirements, modules,
+                        features, tech_stack, api_endpoints)
+                                │
+                                ▼
+                target ∈ {cli, web, mcp}
+                                │
+                                ▼
+        Code templates + optional LLM enhancement
+                                │
+                                ▼
+        Generated app: core.py (capability registry),
+        agents.py (planner/executor), entrypoint, tests/,
+        requirements.txt, Dockerfile, README.md
+                                │
+                                ▼
+        Smoke test: py_compile all .py, run CLI, run MCP flow
+```
+
+**Generated app layout (shared):**
+
+- `core.py` — capability registry with `_default_impl(name)` stubs keyed by slugified feature names
+- `agents.py` — `PlannerAgent` + `ExecutorAgent` layer (LangChain/AutoGen-inspired plan→execute loop)
+- Entrypoint per target: `main.py` (CLI / web), `server.py` (MCP)
+- `tests/`, `requirements.txt`, `.env.example`, `Dockerfile`, `README.md`
+
+**Example CLI invocation of a generated app:**
+
+```bash
+python main.py --list
+python main.py document_upload_module --args '{"file": "a.pdf"}'
+# → {"ok": true, "feature": "Document Upload Module", "result": "[Document Upload Module] executed"}
+```
+
+**Example MCP JSON-RPC flow against a generated server:**
+
+```
+→ {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
+← {"jsonrpc":"2.0","id":2,"result":{"tools":[...]}}
+→ {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"document_upload_module","arguments":{}}}
+← {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"{\"ok\": true, ...}"}]}}
+```
+
+Use via CLI: `collabuild devsrs --dev --target cli --srs-file SRS.md`
+or after a pipeline run: `collabuild --dev --build --target web`.
+The web UI exposes the same capability at `POST /api/devsrs/build`.
 
 ### 5.2 StageResult Dataclass
 
@@ -363,7 +423,7 @@ When using `DevProvider`, the pipeline runs entirely offline:
 
 1. Each stage receives a prompt matching its system prompt keywords
 2. The DevProvider returns a pre-built response for that stage
-3. All 9 stages complete with `passed=True`
+3. All 10 stages complete with `passed=True`
 4. Mermaid diagrams are included in every response
 5. The full pipeline report is generated
 
@@ -377,7 +437,7 @@ When using `DevProvider`, the pipeline runs entirely offline:
 |------|-----|-------------|
 | Chat | `/` | Main chat interface (KoboldCPP-style) |
 | Settings | `/settings` | Provider config, chat params, model paths |
-| Pipeline | `/pipeline` | 9-stage pipeline runner with progress |
+| Pipeline | `/pipeline` | 10-stage pipeline runner with progress |
 | Tools | `/tools` | OCR, web fetcher, agent runner |
 
 ### 6.2 Chat Interface Features
@@ -680,6 +740,7 @@ The DevProvider's `chat_stream()` splits responses into 3-word chunks, simulatin
 | `/api/pipeline/run` | POST | Start pipeline run |
 | `/api/pipeline/{run_id}` | GET | Get run status/results |
 | `/api/pipeline/{run_id}/stream` | GET | SSE stream of progress |
+| `/api/devsrs/build` | POST | Build an app from an SRS document (cli/web/mcp) |
 
 ### Tools Endpoints
 
@@ -766,7 +827,7 @@ Task → LLM Reasoning Loop → Tool Calls → Results
 
 | Operation | Latency |
 |-----------|---------|
-| Full pipeline (9 stages) | < 1 second |
+| Full pipeline (10 stages) | < 1 second |
 | Chat response | < 100ms |
 | Streaming (3-word chunks) | 50ms per chunk |
 

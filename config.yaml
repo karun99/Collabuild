@@ -138,3 +138,17 @@ pipeline:
       agent: "QA-Reviewer"
       temperature: 0.1
       description: "Final accuracy and efficiency validation"
+    readme:
+      agent: "README-Writer"
+      temperature: 0.3
+      description: "Generate AgentNova-style project README from the paper"
+
+# DevSRS — build a runnable application from the drafted SRS
+devsrs:
+  target: "cli"            # cli | web | mcp
+  output_dir: "generated_app"
+  use_llm: true
+  max_tokens: 4096
+  docs:
+    description: "DevSRS materializes the SRS draft into a runnable application:
+      a CLI tool, a FastAPI web app, or an MCP server, inspired by LangChain and AutoGen."

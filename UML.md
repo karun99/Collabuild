@@ -143,7 +143,7 @@ classDiagram
 
 ---
 
-## 3. 9-Stage Pipeline Flow
+## 3. 10-Stage Pipeline Flow
 
 ```mermaid
 flowchart TD
@@ -485,11 +485,13 @@ flowchart LR
 graph TB
     subgraph "collabuild/"
         INIT["__init__.py\nPackage exports"]
-        MAIN["__main__.py\nCLI entry point"]
+        MAIN["__main__.py\nCLI entry point (pipeline, web, reach, devsrs)"]
         CFG["config.py\nYAML loader + env vars"]
         PROV["providers.py\nLLM providers (7+)"]
         MAS["mas.py\nAgent, Crew, Task framework"]
-        PIPE["pipeline.py\n9-stage pipeline"]
+        PIPE["pipeline.py\n10-stage pipeline + write_artifacts()"]
+        DSRS["devsrs.py\nDevSRS — SRS → cli/web/mcp app"]
+        REACH["reach/\nAgent-Reach capability layer"]
 
         subgraph "ocr/"
             BaiduOCR["baidu_ocr.py\nBaidu Unlimited-OCR + General OCR"]
@@ -512,11 +514,32 @@ graph TB
         end
     end
 
-    MAIN --> CFG & PIPE
+    MAIN --> CFG & PIPE & DSRS
     PIPE --> PROV
+    PIPE --> DSRS
+    DSRS --> PROV
     APP --> PROV & CFG
     AR --> WF
     AR --> BaiduOCR
+```
+
+---
+
+## 14. DevSRS Build Flow
+
+```mermaid
+graph LR
+    SRS["SRS.md\n(IEEE 830 draft)"] --> PARSE["parse_srs()"]
+    PARSE --> BP["SRSBlueprint\nmodules / features / tech stack"]
+
+    BP --> CLI["target: cli\nmain.py + core.py + agents.py"]
+    BP --> WEB["target: web\nFastAPI app + static/"]
+    BP --> MCP["target: mcp\nJSON-RPC server.py"]
+
+    CLI --> SMOKE["Smoke tests\npy_compile + run --list"]
+    WEB --> SMOKE2["Smoke tests\npy_compile + uvicorn"]
+    MCP --> SMOKE3["Smoke tests\nMCP tools/list + tools/call"]
+    SMOKE & SMOKE2 & SMOKE3 --> OUT["generated_app/\nREADME.md + tests + Dockerfile"]
 ```
 
 ---

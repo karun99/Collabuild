@@ -1020,6 +1020,194 @@ All pipeline outputs correctly reflect the paper's methodology, algorithms, and 
 | No monitoring in code | LOW | Add Prometheus metrics exporter |
 
 **Overall Verdict: PASS** — Pipeline outputs are clear, authentic, and fully implementable. The system can be built from these specifications with high confidence in the result.""",
+
+        "readme generation": """# Unlimited-OCR
+
+An end-to-end document parsing engine that converts long-form, multi-page documents (PDFs, scans, invoices, books) into structured text in a single forward pass, without page-by-page chunking or lost cross-page context.
+
+## Overview
+
+Traditional OCR systems process documents page-by-page or in small chunks, which breaks layout continuity and drops accuracy on long documents. **Unlimited-OCR** solves this with a vision-language model (ViT-L/14 + Qwen2.5-7B) that reads an entire document in one pass over a 32K token context. Adaptive overlapping-tile cropping preserves layout across page boundaries, and a no-repeat n-gram constraint stops hallucinated repetition — reducing character error rate by 40% versus prior state-of-the-art while holding throughput.
+
+## Key Features
+
+- **One-shot Long-Horizon Parsing**: Single forward pass over arbitrarily long documents with no sequential page processing.
+- **Adaptive Overlapping Cropping**: Splits documents into context-preserving tiles so structure survives page boundaries.
+- **No-Repeat n-Gram Constraint**: Decoding-time token cache that suppresses hallucinated repetition in long outputs.
+- **Custom Logit Processor**: Penalty and formatting rules applied to logits before sampling.
+- **Two Inference Modes**: `gundam` (detailed single-page) and `base` (fast multi-page).
+- **Multi-Backend Inference**: HuggingFace Transformers, vLLM, and SGLang.
+- **Production-Ready**: Docker, CI/CD, REST API, and OpenRouter/NVIDIA/Ollama model support.
+
+## Architecture
+
+```
+User
+|
+Application Layer
+|
+AI Processing Layer
+|
+Model Layer
+|
+Data / Infrastructure Layer
+```
+
+### Component Explanation
+
+- **User**: Web UI or REST API client uploading documents and downloading parsed output.
+- **Application Layer**: FastAPI service exposing upload, parse, status, and export endpoints.
+- **AI Processing Layer**: Core engine orchestrating adaptive cropping, vision encoding, and decoding with the no-repeat constraint.
+- **Model Layer**: ViT-L/14 vision encoder fused with the Qwen2.5-7B language decoder via cross-attention.
+- **Data / Infrastructure Layer**: Object storage for documents, result cache, and GPU inference nodes.
+
+## Technology Stack
+
+- **Core Language**: Python 3.10+
+- **API Framework**: FastAPI
+- **Model / Inference**: PyTorch, HuggingFace Transformers, vLLM, SGLang
+- **Vision Model**: ViT-L/14
+- **Language Model**: Qwen2.5-7B (32K context)
+- **Storage / Cache**: Redis, S3-compatible object storage
+- **Containerization**: Docker, Docker Compose
+
+## Installation
+
+git clone https://github.com/example/unlimited-ocr.git
+cd unlimited-ocr
+pip install -r requirements.txt
+
+### System Dependencies
+
+For GPU inference:
+
+sudo apt-get install -y nvidia-cuda-toolkit
+ollama pull qwen2.5-7b
+
+## Quick Start
+
+from unlimited_ocr import OCRParser
+
+parser = OCRParser(mode="base")          # or mode="gundam" for detailed pages
+result = parser.parse("invoice.pdf")     # single forward pass
+print(result.markdown)
+
+## Configuration
+
+Create a `.env` file in the root directory:
+
+OPENROUTER_API_KEY=sk-or-...
+MODEL_MODE=base
+MAX_TOKENS=32768
+BATCH_SIZE=4
+
+### Configuration File (`config.yaml`)
+
+ocr:
+  mode: base          # gundam | base
+  base_size: 1024
+  image_size: 1024
+  crop_mode: false
+
+inference:
+  backend: vllm       # transformers | vllm | sglang
+  gpu: 1
+
+## API Reference
+
+### Parse a Document
+
+```
+POST /api/parse
+```
+
+**Payload:**
+
+{
+  "file": "invoice.pdf",
+  "mode": "base"
+}
+
+**Response:**
+
+{
+  "document_id": "a1b2c3",
+  "markdown": "# Invoice\\n\\n- Total: $1,200",
+  "pages": 12,
+  "cer": 0.021
+}
+
+### Get Job Status
+
+```
+GET /api/jobs/{id}
+```
+
+## Deployment
+
+### Docker Compose
+
+docker-compose -f docker-compose.yml up -d
+
+### Kubernetes
+
+kubectl apply -f k8s/unlimited-ocr-deploy.yaml
+
+## Security
+
+- **Sandboxed Parsing**: Untrusted documents processed in isolated worker containers.
+- **Input Validation**: File type, size, and content checks on every upload.
+- **Secret Masking**: API keys and PII redacted from logs and responses.
+- **Rate Limiting**: Per-user quotas on the parse API.
+
+## Performance
+
+- **40% lower CER** than previous SOTA on long-form documents.
+- **32K token** context handles documents up to ~10K tokens in one pass.
+- **Throughput maintained** via vLLM/SGLang paged attention.
+
+## Roadmap
+
+- **MVP**: Single-page parsing, REST API, Docker deployment.
+- **Beta**: Multi-page long-horizon parsing, batch jobs, caching.
+- **Production**: GPU autoscaling, multi-backend inference, observability.
+- **Enterprise**: On-prem model serving, SLA guarantees, custom fine-tunes.
+
+## Contributing
+
+We welcome contributions! Please check out our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new inference backends, parser modes, and test coverage.
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.""",
+    }
+
+    # Unique role phrases found only in each stage's system prompt (checked first).
+    STAGE_ROLES = {
+        "paper analysis": ("research paper analyst",),
+        "srs generation": ("requirements engineer", "srs engineer"),
+        "module design": ("software architect",),
+        "user flow design": ("ux/flow designer", "user flow designer"),
+        "sdlc plan": ("project manager", "sdlc planner"),
+        "code generation": ("full-stack developer",),
+        "debugging & review": ("code reviewer", "debug reviewer"),
+        "deployment plan": ("devops engineer",),
+        "final review": ("qa lead",),
+        "readme generation": ("technical writer", "readme generator"),
+    }
+
+    # Fallback keywords used when the system prompt has no known role phrase.
+    STAGE_KEYWORDS = {
+        "paper analysis": ("paper analysis", "paper analyst"),
+        "srs generation": ("srs generation", "srs document", "software requirements specification"),
+        "module design": ("module design", "module architecture"),
+        "user flow design": ("user flow", "ux design"),
+        "sdlc plan": ("sdlc", "project plan"),
+        "code generation": ("code generation", "generate code"),
+        "debugging & review": ("code review", "debugging"),
+        "deployment plan": ("deployment plan", "deployment"),
+        "final review": ("final review",),
+        "readme generation": ("readme", "project readme"),
     }
 
     DEFAULT_RESPONSE = """## [Dev Mode] LLM Response
@@ -1056,9 +1244,15 @@ To use a real provider:
         lower_user = user_msg.lower()
         combined = lower_system + " " + lower_user
 
-        for stage_key, response in self.STAGE_RESPONSES.items():
-            if stage_key in combined:
-                return response
+        # 1) Match on the stage's unique role phrase in the system prompt first.
+        for stage_key, roles in self.STAGE_ROLES.items():
+            if any(role in lower_system for role in roles):
+                return self.STAGE_RESPONSES[stage_key]
+
+        # 2) Fallback: loose keyword match across system + user content.
+        for stage_key, keywords in self.STAGE_KEYWORDS.items():
+            if any(kw in combined for kw in keywords):
+                return self.STAGE_RESPONSES[stage_key]
 
         return self.DEFAULT_RESPONSE.format(version="1.0.0")
 

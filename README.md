@@ -1,6 +1,6 @@
 # Collabuild MAS v1.0
 
-Multi-Agent System with a KoboldCPP-style web UI. Chat with AI models running locally or via cloud APIs — OpenRouter, NVIDIA Build, Anthropic Claude, Ollama, KoboldCPP, text-generation-webui, Bhashini AI, and any OpenAI-compatible endpoint. Includes a 9-stage research paper to production pipeline with full dev fallback for offline testing, autonomous agent-runner with tool use, and Indian language NLP via Bhashini AI (भाषिणी).
+Multi-Agent System with a KoboldCPP-style web UI. Chat with AI models running locally or via cloud APIs — OpenRouter, NVIDIA Build, Anthropic Claude, Ollama, KoboldCPP, text-generation-webui, Bhashini AI, and any OpenAI-compatible endpoint. Includes a 10-stage research paper to production pipeline (Paper → SRS → Modules → UX → SDLC → Code → Debug → Deploy → Review → README) with full dev fallback for offline testing, **DevSRS** (materializes the drafted SRS into a runnable CLI / FastAPI web / MCP application, LangChain & AutoGen-inspired agent layer), an autonomous agent-runner with tool use, and Indian language NLP via Bhashini AI (भाषिणी).
 
 **Author:** [Sai Karun Nandipati](https://karun99.github.io)
 
@@ -12,7 +12,7 @@ Multi-Agent System with a KoboldCPP-style web UI. Chat with AI models running lo
 
 ## Architecture
 
-See [UML.md](UML.md) for all Mermaid diagrams (13 diagrams including class hierarchy, sequence diagrams, deployment, and more).
+See [UML.md](UML.md) for all Mermaid diagrams (14 diagrams including class hierarchy, sequence diagrams, deployment, and more).
 
 ```mermaid
 graph TB
@@ -180,6 +180,18 @@ collabuild --provider ollama --model llama3.1
 collabuild --provider openrouter --paper-file paper.txt --output report.md
 collabuild --provider nvidia --api-key $NVIDIA_API_KEY --paper "My paper..."
 
+# Pipeline + artifacts (report, README.md, SRS.md)
+collabuild --dev --output-dir ./out --readme-file README.md --srs-file SRS.md
+
+# Pipeline + build the application from the SRS (DevSRS)
+collabuild --dev --build --target cli --app-dir generated_app
+collabuild --dev --build --target web --app-dir generated_app
+collabuild --dev --build --target mcp --app-dir generated_app
+
+# DevSRS standalone — build an app directly from an SRS document
+collabuild devsrs --dev --target cli --srs-file SRS.md --output generated_app
+collabuild devsrs --provider openrouter --target web --srs "..." --output generated_app
+
 # All flags
 collabuild --provider {openrouter,nvidia,claude,ollama,koboldcpp,textgen,bhashini,dev}
 collabuild --model <model-name>
@@ -188,6 +200,10 @@ collabuild --endpoint <url>
 collabuild --paper <text>
 collabuild --paper-file <path>
 collabuild --output <path>           # default: pipeline_report.md
+collabuild --output-dir <path>       # artifact directory (report, README, SRS)
+collabuild --build                   # build app from SRS after pipeline
+collabuild --target {cli,web,mcp}    # DevSRS target
+collabuild --app-dir <path>          # DevSRS output directory
 collabuild --config <config.yaml>    # default: bundled config
 ```
 
@@ -288,7 +304,7 @@ Located at project root. Defines provider defaults and pipeline settings. Suppor
 
 ## Pipeline
 
-The 9-stage research paper to production pipeline:
+The 10-stage research paper to production pipeline:
 
 | # | Stage | Agent | Description |
 |---|-------|-------|-------------|
@@ -301,8 +317,28 @@ The 9-stage research paper to production pipeline:
 | 7 | Debugging & Review | Debugger | Bug/security/performance review |
 | 8 | Deployment Plan | DeploymentPlanner | Infrastructure, CI/CD, monitoring |
 | 9 | Final Review | FinalReviewer | QA validation |
+| 10 | Project README | ReadmeGenerator | AgentNova/GitHub-style project README |
 
-Each stage generates Mermaid diagrams. Run offline with `collabuild --dev`.
+Each stage generates Mermaid diagrams. Run offline with `collabuild --dev`. The pipeline writes `pipeline_report.md`, `README.md`, and `SRS.md` to `--output-dir`.
+
+---
+
+## DevSRS — SRS → Runnable App
+
+`DevSRS` materializes the drafted Software Requirements Specification into a **runnable application**, inspired by the LangChain and AutoGen agent frameworks:
+
+| Target | Output | Example |
+|--------|--------|---------|
+| `cli` | Python CLI with argparse + JSON output | `python main.py --list`, `python main.py <capability> --args '{"file":"a.pdf"}'` |
+| `web` | FastAPI web app (REST + agent kickoff) | `uvicorn main:app` → `/api/capabilities`, `/api/run/{capability}` |
+| `mcp` | MCP (Model Context Protocol) server | JSON-RPC `tools/list` + `tools/call` over stdio |
+
+Each build produces `core.py` (capability registry), `agents.py` (planner/executor agent layer), app entrypoint, `tests/`, `requirements.txt`, `.env.example`, `Dockerfile`, and a `README.md`. Smoke tests run automatically after generation (all generated Python compiles, CLI executes, MCP flow answers a `tools/call`).
+
+```bash
+collabuild devsrs --dev --target cli --srs-file SRS.md --output generated_app
+cd generated_app && python main.py --list
+```
 
 ---
 
@@ -319,6 +355,7 @@ Each stage generates Mermaid diagrams. Run offline with `collabuild --dev`.
 | `/api/pipeline/run` | POST | Start pipeline run |
 | `/api/pipeline/{run_id}` | GET | Get run status |
 | `/api/pipeline/{run_id}/stream` | GET | SSE progress stream |
+| `/api/devsrs/build` | POST | Build an app from an SRS document (cli/web/mcp) |
 | `/api/tools/ocr` | POST | OCR a document |
 | `/api/tools/web-fetch` | POST | Fetch URL content |
 | `/api/tools/agent-run` | POST | Run research agent |
@@ -327,11 +364,11 @@ Each stage generates Mermaid diagrams. Run offline with `collabuild --dev`.
 
 ## UML Diagrams
 
-See [UML.md](UML.md) for all 13 architecture diagrams:
+See [UML.md](UML.md) for all 14 architecture diagrams:
 
 1. System Architecture
 2. Provider Class Hierarchy
-3. 9-Stage Pipeline Flow
+3. 10-Stage Pipeline Flow
 4. Chat API Sequence Diagram
 5. Provider Selection Sequence
 6. Multi-Agent System Class Diagram
@@ -342,6 +379,7 @@ See [UML.md](UML.md) for all 13 architecture diagrams:
 11. Configuration Resolution
 12. CI/CD Pipeline
 13. Module Decomposition
+14. DevSRS Build Flow
 
 ---
 
@@ -351,11 +389,13 @@ See [UML.md](UML.md) for all 13 architecture diagrams:
 Collabuild/
 ├── collabuild/
 │   ├── __init__.py          # Package exports (v1.0.0)
-│   ├── __main__.py          # CLI entry point
+│   ├── __main__.py          # CLI entry point (pipeline, web, reach, devsrs)
 │   ├── config.py            # YAML config + env var resolution
 │   ├── providers.py         # LLM providers (8+: OpenRouter, NVIDIA, Claude, Ollama, KoboldCPP, textgen, Bhashini AI, Dev)
 │   ├── mas.py               # Multi-Agent System (Agent, Crew, Task)
-│   ├── pipeline.py          # 9-stage pipeline
+│   ├── pipeline.py          # 10-stage pipeline + write_artifacts()
+│   ├── devsrs.py            # DevSRS — SRS → runnable CLI / web / MCP app
+│   ├── reach/               # Agent-Reach capability layer (channels, doctor)
 │   ├── ocr/
 │   │   ├── __init__.py      # OCR module + agent-runner factory
 │   │   └── baidu_ocr.py     # Baidu OCR (Unlimited + General)
@@ -363,7 +403,7 @@ Collabuild/
 │   │   ├── web_fetcher.py   # URL fetching + text extraction
 │   │   └── agent_runner.py  # Autonomous research agent
 │   └── web/
-│       ├── app.py           # FastAPI routes + API
+│       ├── app.py           # FastAPI routes + API (+ /api/devsrs/build)
 │       └── templates/       # HTML templates (Tokyo Night theme)
 ├── tests/                   # Test suite
 ├── diagrams/                # Individual Mermaid diagram files

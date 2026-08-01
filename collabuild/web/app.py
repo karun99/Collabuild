@@ -106,7 +106,8 @@ async def pipeline_page(request: Request):
         providers = list(PROVIDER_REGISTRY.keys())
     stages = [
         "Paper Analysis", "SRS Generation", "Module Design", "User Flow Design",
-        "SDLC Plan", "Code Generation", "Debugging & Review", "Deployment Plan", "Final Review"
+        "SDLC Plan", "Code Generation", "Debugging & Review", "Deployment Plan",
+        "Final Review", "Project README"
     ]
     return templates.TemplateResponse("pipeline.html", {
         "request": request,
@@ -360,7 +361,7 @@ async def _run_pipeline_bg(run_id: str, paper: str, provider_name: str, model: s
                 ("module_design", "Module Design"), ("user_flow", "User Flow Design"),
                 ("sdlc_plan", "SDLC Plan"), ("code_gen", "Code Generation"),
                 ("debug", "Debugging & Review"), ("deployment", "Deployment Plan"),
-                ("final_review", "Final Review"),
+                ("final_review", "Final Review"), ("readme", "Project README"),
             ]
             results = {}
             prev = ""
@@ -392,6 +393,7 @@ async def _run_pipeline_bg(run_id: str, paper: str, provider_name: str, model: s
                 "stage": v.stage, "agent": v.agent,
                 "content": v.content[:2000], "mermaid": v.mermaid, "passed": v.passed,
             } for k, v in results.items()}
+            run["srs"] = results.get("srs").content if results.get("srs") else ""
             run["report"] = pipeline.report()
             run["status"] = "complete"
             run["progress"] = 100
@@ -539,6 +541,41 @@ async def api_agent_run(request: Request):
             "total_duration_ms": result.total_duration_ms,
             "success": result.success,
             "error": result.error,
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 500)
+
+
+@app.post("/api/devsrs/build")
+async def api_devsrs_build(request: Request):
+    """Build a runnable application from an SRS document using DevSRS."""
+    data = await request.json()
+    srs = data.get("srs", "")
+    target = data.get("target", "cli")
+    output_dir = data.get("output_dir", "generated_app")
+    if target not in ("cli", "web", "mcp"):
+        return JSONResponse({"error": "target must be cli, web or mcp"}, 400)
+    if not srs:
+        return JSONResponse({"error": "srs document required"}, 400)
+
+    def _build():
+        from ..devsrs import DevSRS
+        provider = None
+        if data.get("dev"):
+            from ..providers import DevProvider
+            provider = DevProvider()
+        builder = DevSRS(provider=provider, target=target,
+                         output_dir=output_dir, model=user_settings.get("model", ""))
+        return builder.build(srs, use_llm=bool(data.get("use_llm", False)) and not data.get("dev"))
+
+    try:
+        build = await asyncio.get_event_loop().run_in_executor(None, _build)
+        return {
+            "target": build["target"],
+            "output_dir": build["output_dir"],
+            "files": build["files"],
+            "smoke_ok": build["smoke_ok"],
+            "smoke_test": build["smoke_test"],
         }
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)

@@ -1,7 +1,6 @@
 """OCR module — Baidu OCR unlimited document parsing + agent-runner integration."""
 
 from ..research.agent_runner import AgentRunner
-
 from .baidu_ocr import BaiduOCR
 
 __all__ = ["BaiduOCR", "create_ocr_agent_runner"]

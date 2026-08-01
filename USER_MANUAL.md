@@ -27,7 +27,7 @@
 Collabuild MAS is a Multi-Agent System that lets you:
 
 - **Chat with AI models** running locally (Ollama, KoboldCPP) or via cloud APIs (OpenRouter, NVIDIA, Claude)
-- **Run a 9-stage pipeline** that transforms research papers into production-ready software
+- **Run a 10-stage pipeline** that transforms research papers into production-ready software
 - **Use research tools** including OCR, web content extraction, and autonomous research agents
 
 ### What You Need
@@ -241,7 +241,7 @@ For any OpenAI-compatible endpoint (vLLM, llama.cpp, LocalAI, LM Studio):
 
 ## 6. Using the Pipeline
 
-The 9-stage pipeline transforms a research paper into a production-ready system.
+The 10-stage pipeline transforms a research paper into a production-ready system.
 
 ### Access the Pipeline
 

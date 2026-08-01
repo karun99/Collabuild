@@ -7,6 +7,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from . import config as cfgmod
 from .providers import LLMProvider, create_provider
@@ -360,6 +361,86 @@ Pipeline summary:
                 all_passed = False
         return StageResult(stage="Final Review", agent=self.name, content=content, passed=all_passed)
 
+class ReadmeGenerator(StageAgent):
+    """Generates a polished GitHub-style project README from the pipeline outputs.
+
+    Follows the AgentNova-style README structure: Overview, Key Features,
+    Architecture, Technology Stack, Installation, Quick Start, Configuration,
+    API Reference, Deployment, Security, Performance, Roadmap.
+    """
+    def run(self, paper_result: str, srs_result: str, module_result: str,
+            deployment_result: str) -> StageResult:
+        sys = "You are an expert technical writer. Generate a polished, production-grade GitHub README."
+        usr = f"""Rewrite this research paper into a professional project README.md using EXACTLY this section structure (in order):
+
+# <Project Name>
+
+## Overview
+(2-3 paragraphs: what it does, why it matters, the problem it solves)
+
+## Key Features
+(- bullets, 5-8 headline features derived from the paper's innovations)
+
+## Architecture
+(ASCII layer diagram: User / Application Layer / AI Processing Layer / Model Layer / Data Layer)
+
+### Component Explanation
+(- bullets explaining each layer and key component)
+
+## Technology Stack
+(- bullets: core language, API framework, model/inference, storage, deployment)
+
+## Installation
+(bash code block: clone, cd, pip install, system deps)
+
+## Quick Start
+(python or CLI code block showing minimal usage)
+
+## Configuration
+### Environment Variables
+(.env example code block)
+### Configuration File (config.yaml)
+(yaml example code block)
+
+## API Reference
+(endpoints with request/response JSON examples)
+
+## Deployment
+(Docker Compose / Kubernetes commands)
+
+## Security
+(- bullets of security measures)
+
+## Performance
+(- bullets of performance characteristics)
+
+## Roadmap
+(MVP / Beta / Production / Enterprise bullets)
+
+## Contributing
+(short paragraph + link)
+
+## License
+(license statement)
+
+Use concrete details from the paper, not generic placeholders.
+
+PAPER ANALYSIS:
+{paper_result[:3000]}
+
+SRS:
+{srs_result[:3000]}
+
+MODULE ARCHITECTURE:
+{module_result[:2000]}
+
+DEPLOYMENT PLAN:
+{deployment_result[:2000]}"""
+        content = self.call(sys, usr)
+        mermaid = self.extract_mermaid(content)
+        return StageResult(stage="Project README", agent=self.name, content=content,
+                           mermaid=mermaid, passed=self._last_error is None)
+
 # ═══════════════════════════════════════════════════════════════
 # ORCHESTRATOR
 # ═══════════════════════════════════════════════════════════════
@@ -386,6 +467,7 @@ class CollabuildPipeline:
             "debug":           Debugger("Debug-Reviewer", "code reviewer", **{**kw, "temperature": 0.1}),
             "deployment":      DeploymentPlanner("DevOps-Architect", "DevOps engineer", **kw),
             "final_review":    FinalReviewer("QA-Reviewer", "QA lead", **{**kw, "temperature": 0.1}),
+            "readme":          ReadmeGenerator("README-Writer", "technical writer", **kw),
         }
         self.results = {}
 
@@ -450,10 +532,37 @@ class CollabuildPipeline:
         r9 = self.stages["final_review"].run(flat)
         self.results["final_review"] = r9
 
+        log.info("\n[10/10] Writing project README...")
+        r10 = self.stages["readme"].run(r1.content, r2.content, r3.content, r8.content)
+        self.results["readme"] = r10
+
         log.info("\n" + "=" * 60)
         log.info("Pipeline complete!")
         log.info("=" * 60)
         return self.results
+
+    def write_artifacts(self, output_dir: str = ".", report_file: str = "pipeline_report.md",
+                        readme_file: str = "README.md", srs_file: str = "SRS.md") -> dict:
+        """Write the pipeline report plus generated project README and SRS to disk.
+
+        Returns a dict mapping artifact names ("report", "readme", "srs") to the
+        paths of the files that were written.
+        """
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        written: dict = {}
+        if not self.results:
+            return written
+        report_path = out / report_file
+        report_path.write_text(self.report(), encoding="utf-8")
+        written["report"] = str(report_path)
+        for key, filename in (("readme", readme_file), ("srs", srs_file)):
+            result = self.results.get(key)
+            if result and result.content and not result.content.startswith("Error:"):
+                path = out / filename
+                path.write_text(result.content, encoding="utf-8")
+                written[key] = str(path)
+        return written
 
     def report(self) -> str:
         lines = ["# Collabuild MAS — Pipeline Report", ""]
