@@ -268,7 +268,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👨‍💻 Author
 
-Built with ❤️ by Arihant Gupta
+Built with ❤️ by [Sai Karun Nandipati](https://github.com/karun99)
 
 ## 📞 Support
 
