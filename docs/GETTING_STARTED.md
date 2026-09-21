@@ -164,7 +164,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+Creative Commons Attribution 4.0 International License (CC BY 4.0) - see [LICENSE](LICENSE)
 
 ## Support
 
@@ -174,4 +174,4 @@ MIT License - see [LICENSE](LICENSE)
 
 ## Author
 
-Built with ❤️ by Arihant Gupta
+Built with ❤️ by Sai Karun Nandipati

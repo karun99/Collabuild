@@ -24,8 +24,8 @@
     "canvas",
     "websocket"
   ],
-  "author": "Arihant Gupta",
-  "license": "MIT",
+  "author": "Sai Karun Nandipati",
+  "license": "CC-BY-4.0",
   "dependencies": {
     "@prisma/client": "^5.0.0",
     "bcryptjs": "^2.4.3",

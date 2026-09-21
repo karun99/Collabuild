@@ -3,7 +3,7 @@
 A modern, full-stack collaborative design and prototyping platform where teams can create, edit, and iterate together in real-time. Think of it as a simplified Figma with powerful real-time collaboration features, version history, and an intuitive canvas experience.
 
 ![CollaBuild](https://img.shields.io/badge/CollaBuild-v1.0-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-CC%20BY%204.0-lightgrey)
 
 ## 🎯 Features
 
@@ -264,7 +264,7 @@ including the GitHub Actions deploy workflow and versioned GHCR images.
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0) — see the [LICENSE](LICENSE) file for details.
 
 ## 👨‍💻 Author
 

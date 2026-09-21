@@ -41,4 +41,4 @@ Suggest your idea by creating an issue with label `enhancement`. Include:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under its MIT License.
+By contributing, you agree that your contributions will be licensed under the project's Creative Commons Attribution 4.0 International License (CC BY 4.0).

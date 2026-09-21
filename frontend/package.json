@@ -3,6 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "author": "Sai Karun Nandipati",
+  "license": "CC-BY-4.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
