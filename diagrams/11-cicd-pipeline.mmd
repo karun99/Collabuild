@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph "GitHub Actions"
+        A[Push to main/develop] --> B["Test Job"]
+        B --> B1["Python 3.10-3.13 matrix"]
+        B1 --> B2["ruff check"]
+        B2 --> B3["pytest"]
+        B3 --> B4["python -m build"]
+        B4 --> B5["Verify wheel contents"]
+
+        B5 --> C["Build Job"]
+        C --> C1["Build wheel + sdist"]
+        C1 --> C2["Upload artifacts"]
+
+        C2 --> D{"Tag push?"}
+        D -->|Yes| E["Publish Job"]
+        E --> E1["Download artifacts"]
+        E1 --> E2["pypa/gh-action-pypi-publish"]
+        D -->|No| F[Done]
+    end

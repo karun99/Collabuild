@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+{% block title %}Collabuild MAS — Chat{% endblock %}
+
+{% block body %}
+<div class="app">
+
+  <!-- ══════ SIDEBAR ══════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      <h1>Collabuild MAS</h1>
+      <span class="version">v0.3</span>
+    </div>
+
+    <div class="sidebar-content">
+      <!-- Provider -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Provider</div>
+        <div class="field-group">
+          <label class="field-label">Backend</label>
+          <select id="sel-provider">
+            <option value="openrouter" class="badge-openrouter">OpenRouter</option>
+            <option value="claude" class="badge-claude">Claude (Anthropic)</option>
+            <option value="nvidia" class="badge-nvidia">NVIDIA Build</option>
+            <option value="ollama" class="badge-ollama">Ollama</option>
+            <option value="koboldcpp" class="badge-koboldcpp">KoboldCPP</option>
+            <option value="textgen" class="badge-textgen">text-gen-webui</option>
+            <option value="custom" class="badge-custom">Custom API</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Endpoint</label>
+          <input type="text" id="inp-endpoint" placeholder="http://localhost:11434">
+        </div>
+        <div class="field-group">
+          <label class="field-label">API Key</label>
+          <input type="password" id="inp-apikey" placeholder="sk-...">
+        </div>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <button class="btn-secondary btn-sm" onclick="checkProviderStatus()">
+            <span class="spinner" id="status-spinner" style="display:none;"></span>
+            Check Status
+          </button>
+          <button class="btn-primary btn-sm" onclick="saveSettings()">Save</button>
+        </div>
+        <div id="provider-status" style="margin-top:6px;font-size:11px;color:var(--text-muted);"></div>
+      </div>
+
+      <!-- Model -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Model</div>
+        <div class="field-group">
+          <label class="field-label">Model Name</label>
+          <div style="display:flex;gap:4px;">
+            <input type="text" id="inp-model" placeholder="e.g. llama3.1, gpt-4o" style="flex:1;">
+            <button class="btn-icon" onclick="refreshModels()" title="Refresh models">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="model-list" style="max-height:160px;overflow-y:auto;"></div>
+      </div>
+
+      <!-- Local Models (GGUF/GGML) -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">
+          Local Models
+          <button class="btn-icon btn-sm" onclick="refreshLocalModels()" title="Scan for local models" style="float:right;width:22px;height:22px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+        </div>
+        <div id="local-models" style="max-height:200px;overflow-y:auto;"></div>
+        <div id="local-models-empty" class="empty-state" style="padding:12px;">
+          <p>No local models found.<br>Place .gguf / .ggml files in ~/models</p>
+        </div>
+      </div>
+
+      <!-- Parameters -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Parameters</div>
+        <div class="field-group">
+          <label class="field-label">Temperature</label>
+          <div class="slider-group">
+            <input type="range" id="sl-temp" min="0" max="2" step="0.05" value="0.7"
+                   oninput="document.getElementById('val-temp').textContent=this.value">
+            <span class="slider-value" id="val-temp">0.7</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Max Tokens</label>
+          <input type="number" id="inp-maxtokens" value="4096" min="1" max="128000">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Top P</label>
+          <div class="slider-group">
+            <input type="range" id="sl-topp" min="0" max="1" step="0.05" value="0.9"
+                   oninput="document.getElementById('val-topp').textContent=this.value">
+            <span class="slider-value" id="val-topp">0.9</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Top K</label>
+          <input type="number" id="inp-topk" value="40" min="0" max="200">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Repeat Penalty</label>
+          <div class="slider-group">
+            <input type="range" id="sl-reppen" min="1" max="2" step="0.05" value="1.1"
+                   oninput="document.getElementById('val-reppen').textContent=this.value">
+            <span class="slider-value" id="val-reppen">1.1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Prompt -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">System Prompt</div>
+        <textarea id="inp-sysprompt" rows="3" placeholder="You are a helpful assistant...">You are a helpful, harmless, and honest AI assistant.</textarea>
+      </div>
+
+      <!-- Navigation -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Navigation</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <a href="/" class="nav-tab active" style="text-align:left;display:block;">Chat</a>
+          <a href="/settings" class="nav-tab" style="text-align:left;display:block;">Settings</a>
+          <a href="/pipeline" class="nav-tab" style="text-align:left;display:block;">Pipeline</a>
+          <a href="/tools" class="nav-tab" style="text-align:left;display:block;">Tools</a>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════ MAIN CHAT ══════ -->
+  <main class="main">
+    <!-- Top bar -->
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--bg-secondary);">
+      <button class="btn-icon mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span id="active-provider-badge" class="provider-badge badge-openrouter">OpenRouter</span>
+      <span id="active-model-label" style="font-size:12px;color:var(--text-muted);flex:1;">No model selected</span>
+      <button class="btn-secondary btn-sm" onclick="clearChat()">Clear</button>
+      <button class="btn-secondary btn-sm" onclick="exportChat()">Export</button>
+    </div>
+
+    <!-- Chat messages -->
+    <div id="chat-area" style="flex:1;overflow-y:auto;padding:16px;">
+      <div id="chat-messages"></div>
+      <div id="chat-welcome" style="text-align:center;padding:60px 20px;color:var(--text-muted);">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" style="margin-bottom:12px;">
+          <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+        </svg>
+        <h2 style="font-size:18px;color:var(--text-secondary);margin-bottom:8px;">Collabuild MAS</h2>
+        <p style="font-size:13px;max-width:400px;margin:0 auto;line-height:1.5;">
+          Select a provider and model from the sidebar, then start chatting.<br>
+          Supports OpenRouter, NVIDIA Build, Ollama, KoboldCPP, text-gen-webui, and custom APIs.
+        </p>
+        <div style="margin-top:20px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+          <span class="provider-badge badge-openrouter">OpenRouter</span>
+          <span class="provider-badge badge-claude">Claude</span>
+          <span class="provider-badge badge-nvidia">NVIDIA Build</span>
+          <span class="provider-badge badge-ollama">Ollama</span>
+          <span class="provider-badge badge-koboldcpp">KoboldCPP</span>
+          <span class="provider-badge badge-textgen">text-gen-webui</span>
+          <span class="provider-badge badge-custom">Custom</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div style="border-top:1px solid var(--border);padding:12px 16px;background:var(--bg-secondary);">
+      <div style="display:flex;gap:8px;align-items:flex-end;">
+        <textarea id="chat-input" rows="1" placeholder="Type a message... (Enter to send, Shift+Enter for newline)"
+          style="flex:1;min-height:40px;max-height:200px;resize:none;padding:10px 14px;font-size:14px;"
+          onkeydown="handleInputKey(event)" oninput="autoResize(this)"></textarea>
+        <button id="send-btn" class="btn-primary" onclick="sendMessage()" style="height:40px;padding:0 16px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+        <button id="stop-btn" class="btn-danger" onclick="stopGeneration()" style="height:40px;padding:0 12px;display:none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="6" width="12" height="12" rx="1"/>
+          </svg>
+        </button>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text-dim);">
+        <span id="input-hint">Enter to send &middot; Shift+Enter for newline</span>
+        <span id="token-count"></span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════════════════
+const state = {
+  messages: [],
+  generating: false,
+  abortController: null,
+  settings: {{ settings | tojson }},
+};
+
+// ══════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  refreshLocalModels();
+  refreshModels();
+});
+
+function loadSettings() {
+  const s = state.settings;
+  if (s.provider) document.getElementById('sel-provider').value = s.provider;
+  if (s.endpoint) document.getElementById('inp-endpoint').value = s.endpoint;
+  if (s.api_key) document.getElementById('inp-apikey').value = s.api_key;
+  if (s.model) document.getElementById('inp-model').value = s.model;
+  if (s.temperature !== undefined) {
+    document.getElementById('sl-temp').value = s.temperature;
+    document.getElementById('val-temp').textContent = s.temperature;
+  }
+  if (s.max_tokens) document.getElementById('inp-maxtokens').value = s.max_tokens;
+  if (s.top_p !== undefined) {
+    document.getElementById('sl-topp').value = s.top_p;
+    document.getElementById('val-topp').textContent = s.top_p;
+  }
+  if (s.top_k !== undefined) document.getElementById('inp-topk').value = s.top_k;
+  if (s.repeat_penalty !== undefined) {
+    document.getElementById('sl-reppen').value = s.repeat_penalty;
+    document.getElementById('val-reppen').textContent = s.repeat_penalty;
+  }
+  if (s.system_prompt) document.getElementById('inp-sysprompt').value = s.system_prompt;
+  updateProviderBadge();
+  updateModelLabel();
+}
+
+function gatherSettings() {
+  return {
+    provider: document.getElementById('sel-provider').value,
+    endpoint: document.getElementById('inp-endpoint').value,
+    api_key: document.getElementById('inp-apikey').value,
+    model: document.getElementById('inp-model').value,
+    temperature: parseFloat(document.getElementById('sl-temp').value),
+    max_tokens: parseInt(document.getElementById('inp-maxtokens').value),
+    top_p: parseFloat(document.getElementById('sl-topp').value),
+    top_k: parseInt(document.getElementById('inp-topk').value),
+    repeat_penalty: parseFloat(document.getElementById('sl-reppen').value),
+    system_prompt: document.getElementById('inp-sysprompt').value,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// Provider logic
+// ══════════════════════════════════════════════════════════════
+const PROVIDER_ENDPOINTS = {
+  openrouter: 'https://openrouter.ai/api/v1',
+  claude: 'https://api.anthropic.com/v1',
+  nvidia: 'https://integrate.api.nvidia.com/v1',
+  ollama: 'http://localhost:11434',
+  koboldcpp: 'http://localhost:5001',
+  textgen: 'http://localhost:5000',
+  custom: '',
+};
+
+document.getElementById('sel-provider').addEventListener('change', function() {
+  const ep = PROVIDER_ENDPOINTS[this.value];
+  if (ep && !document.getElementById('inp-endpoint').value) {
+    document.getElementById('inp-endpoint').value = ep;
+  }
+  updateProviderBadge();
+  refreshModels();
+});
+
+function updateProviderBadge() {
+  const p = document.getElementById('sel-provider').value;
+  const badge = document.getElementById('active-provider-badge');
+  const names = {openrouter:'OpenRouter',claude:'Claude (Anthropic)',nvidia:'NVIDIA Build',ollama:'Ollama',koboldcpp:'KoboldCPP',textgen:'text-gen-webui',custom:'Custom'};
+  badge.textContent = names[p] || p;
+  badge.className = 'provider-badge badge-' + p;
+}
+
+function updateModelLabel() {
+  const m = document.getElementById('inp-model').value;
+  document.getElementById('active-model-label').textContent = m || 'No model selected';
+}
+
+document.getElementById('inp-model').addEventListener('input', updateModelLabel);
+
+async function saveSettings() {
+  state.settings = gatherSettings();
+  try {
+    await fetch('/api/settings', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(state.settings),
+    });
+    showToast('Settings saved');
+  } catch(e) { showToast('Failed to save', 'error'); }
+}
+
+async function checkProviderStatus() {
+  const spinner = document.getElementById('status-spinner');
+  const el = document.getElementById('provider-status');
+  spinner.style.display = 'inline-block';
+  el.innerHTML = 'Checking...';
+  try {
+    const r = await fetch('/api/providers/status');
+    const data = await r.json();
+    const p = document.getElementById('sel-provider').value;
+    const info = data[p];
+    if (!info) { el.innerHTML = '<span style="color:var(--text-muted);">N/A</span>'; }
+    else if (info.status === 'online') {
+      el.innerHTML = '<span class="status-dot status-online"></span> Online — ' + (info.endpoint || '');
+    } else {
+      el.innerHTML = '<span class="status-dot status-offline"></span> Offline — ' + (info.error || 'unreachable');
+    }
+  } catch(e) { el.innerHTML = '<span style="color:var(--accent-red);">Error checking</span>'; }
+  spinner.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════════════
+// Model listing
+// ══════════════════════════════════════════════════════════════
+async function refreshModels() {
+  const provider = document.getElementById('sel-provider').value;
+  const list = document.getElementById('model-list');
+  list.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-muted);">Loading models...</div>';
+  try {
+    const r = await fetch('/api/models?provider=' + provider);
+    const data = await r.json();
+    if (!data.models || data.models.length === 0) {
+      list.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-muted);">No models available</div>';
+      return;
+    }
+    list.innerHTML = data.models.map(m =>
+      `<div class="model-file" onclick="selectModel('${m.replace(/'/g,"\\'")}')">
+        <span class="file-icon">&#x1f916;</span>
+        <div class="file-info"><div class="file-name">${m}</div></div>
+      </div>`
+    ).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-muted);">Failed to load</div>';
+  }
+}
+
+function selectModel(name) {
+  document.getElementById('inp-model').value = name;
+  updateModelLabel();
+}
+
+async function refreshLocalModels() {
+  const el = document.getElementById('local-models');
+  const empty = document.getElementById('local-models-empty');
+  el.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-muted);">Scanning...</div>';
+  try {
+    const r = await fetch('/api/local-models');
+    const data = await r.json();
+    if (!data.models || data.models.length === 0) {
+      el.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    el.innerHTML = data.models.map(m =>
+      `<div class="model-file" onclick="selectLocalModel('${m.path.replace(/'/g,"\\'")}')">
+        <span class="file-icon">${m.format === 'GGUF' ? '&#x1f4c4;' : '&#x1f4c4;'}</span>
+        <div class="file-info">
+          <div class="file-name">${m.name}</div>
+          <div class="file-meta">${m.size_mb} MB &middot; ${m.format}</div>
+        </div>
+        <span class="file-format format-${m.format.toLowerCase()}">${m.format}</span>
+      </div>`
+    ).join('');
+  } catch(e) {
+    el.innerHTML = '';
+    empty.style.display = 'block';
+  }
+}
+
+function selectLocalModel(path) {
+  // For local models, user should point KoboldCPP/textgen to the file
+  document.getElementById('inp-model').value = path.split('/').pop();
+  updateModelLabel();
+  showToast('Selected: ' + path.split('/').pop());
+}
+
+// ══════════════════════════════════════════════════════════════
+// Chat
+// ══════════════════════════════════════════════════════════════
+function handleInputKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+}
+
+function scrollToBottom() {
+  const area = document.getElementById('chat-area');
+  area.scrollTop = area.scrollHeight;
+}
+
+function renderMessage(role, content, append = false) {
+  const welcome = document.getElementById('chat-welcome');
+  if (welcome) welcome.style.display = 'none';
+
+  const container = document.getElementById('chat-messages');
+  let msgEl;
+
+  if (append) {
+    const last = container.lastElementChild;
+    if (last && last.dataset.role === role) {
+      const contentEl = last.querySelector('.msg-content');
+      contentEl.innerHTML = formatMarkdown(contentEl.textContent + content);
+      scrollToBottom();
+      return;
+    }
+  }
+
+  msgEl = document.createElement('div');
+  msgEl.dataset.role = role;
+  msgEl.style.cssText = 'margin-bottom:16px;';
+
+  const isUser = role === 'user';
+  msgEl.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:flex-start;">
+      <div style="width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;
+        ${isUser ? 'background:var(--accent-blue);color:var(--bg-primary);' : 'background:var(--bg-tertiary);color:var(--accent-green);border:1px solid var(--border);'}">
+        ${isUser ? 'You' : 'AI'}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500;">
+          ${isUser ? 'You' : 'Assistant'}
+        </div>
+        <div class="msg-content" style="font-size:14px;line-height:1.6;color:var(--text-primary);word-wrap:break-word;">
+          ${formatMarkdown(content)}
+        </div>
+      </div>
+    </div>
+  `;
+  container.appendChild(msgEl);
+  scrollToBottom();
+}
+
+function formatMarkdown(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre style="background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:12px;overflow-x:auto;font-size:12px;font-family:var(--font-mono);margin:8px 0;"><code>$2</code></pre>')
+    .replace(/`([^`]+)`/g, '<code style="background:var(--bg-tertiary);padding:2px 5px;border-radius:3px;font-size:12px;font-family:var(--font-mono);">$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+  return html;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || state.generating) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  state.messages.push({ role: 'user', content: text });
+  renderMessage('user', text);
+
+  state.generating = true;
+  document.getElementById('send-btn').style.display = 'none';
+  document.getElementById('stop-btn').style.display = 'flex';
+
+  const model = document.getElementById('inp-model').value;
+  const provider = document.getElementById('sel-provider').value;
+  const temperature = parseFloat(document.getElementById('sl-temp').value);
+  const max_tokens = parseInt(document.getElementById('inp-maxtokens').value);
+  const sysprompt = document.getElementById('inp-sysprompt').value;
+
+  let fullResponse = '';
+  renderMessage('assistant', '');
+
+  state.abortController = new AbortController();
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: state.messages,
+        model: model,
+        provider: provider,
+        temperature: temperature,
+        max_tokens: max_tokens,
+        system_prompt: sysprompt,
+      }),
+      signal: state.abortController.signal,
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = 'token';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          if (currentEvent === 'token') {
+            fullResponse += data;
+            renderMessage('assistant', fullResponse);
+          } else if (currentEvent === 'error') {
+            fullResponse += '\n[Error: ' + data + ']';
+            renderMessage('assistant', fullResponse);
+          }
+          currentEvent = 'token';
+        }
+      }
+    }
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      fullResponse += '\n[Connection error: ' + e.message + ']';
+      renderMessage('assistant', fullResponse);
+    }
+  }
+
+  if (fullResponse) {
+    state.messages.push({ role: 'assistant', content: fullResponse });
+  }
+
+  state.generating = false;
+  state.abortController = null;
+  document.getElementById('send-btn').style.display = 'flex';
+  document.getElementById('stop-btn').style.display = 'none';
+}
+
+function stopGeneration() {
+  if (state.abortController) {
+    state.abortController.abort();
+  }
+}
+
+function clearChat() {
+  state.messages = [];
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('chat-welcome').style.display = 'block';
+}
+
+function exportChat() {
+  if (state.messages.length === 0) { showToast('No messages to export', 'error'); return; }
+  let md = '# Collabuild MAS — Chat Export\n\n';
+  for (const m of state.messages) {
+    md += `## ${m.role === 'user' ? 'You' : 'Assistant'}\n\n${m.content}\n\n---\n\n`;
+  }
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'chat_export.md'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Chat exported');
+}
+</script>
+{% endblock %}

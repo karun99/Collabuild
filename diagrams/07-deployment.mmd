@@ -1,0 +1,37 @@
+graph TB
+    subgraph "Client"
+        Browser[Web Browser]
+    end
+
+    subgraph "Docker Container"
+        subgraph "Python 3.12"
+            UV[uvicorn]
+            FA[FastAPI app]
+            subgraph "Routes"
+                R1["/ (Chat)"]
+                R2["/settings"]
+                R3["/pipeline"]
+                R4["/tools"]
+                R5["/api/*"]
+            end
+        end
+    end
+
+    subgraph "External Services"
+        OR_API[OpenRouter API]
+        NV_API[NVIDIA API]
+        CL_API[Claude API]
+        BD_API[Baidu OCR API]
+    end
+
+    subgraph "Local Services"
+        OL_SVR[Ollama :11434]
+        KC_SVR[KoboldCPP :5001]
+        TG_SVR[text-gen-webui :5000]
+    end
+
+    Browser -->|HTTP/SSE| UV
+    UV --> FA
+    FA --> R1 & R2 & R3 & R4 & R5
+    R5 --> OR_API & NV_API & CL_API & BD_API
+    R5 --> OL_SVR & KC_SVR & TG_SVR

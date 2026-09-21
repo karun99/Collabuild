@@ -1,0 +1,78 @@
+classDiagram
+    class AgentConfig {
+        +name: str
+        +role: str
+        +endpoint: str
+        +auth_type: AuthType
+        +api_key: str
+        +model: str
+        +temperature: float
+        +max_tokens: int
+        +auth_headers() dict
+        +endpoint_url(path) str
+    }
+
+    class AuthType {
+        &lt;&lt;enum&gt;&gt;
+        NONE
+        BEARER
+        API_KEY
+        HEADER
+        BASIC
+        CUSTOM
+    }
+
+    class ProcessType {
+        &lt;&lt;enum&gt;&gt;
+        SEQUENTIAL
+        HIERARCHICAL
+        PARALLEL
+    }
+
+    class Agent {
+        +config: AgentConfig
+        +run(task) any
+        +_local_fn(task) str
+        +_call_api(task) str
+    }
+
+    class OCRAgent {
+        +_call_api(task) str
+        +_openai_vision(task, file_path) str
+        +_generic_ocr(task) str
+    }
+
+    class DocumentAnalyzer
+    class QualityChecker
+
+    class Task {
+        +id: str
+        +description: str
+        +agent: str
+        +context: dict
+        +expected_output: str
+        +callback: Callable
+        +dependencies: list
+        +result: any
+    }
+
+    class Crew {
+        +agents: dict
+        +tasks: list
+        +process: ProcessType
+        +kickoff() list
+        +_run_sequential() list
+        +_run_parallel() list
+        +_run_hierarchical() list
+        +summary() str
+    }
+
+    AgentConfig --> AuthType
+    Agent --> AgentConfig
+    OCRAgent --|> Agent
+    DocumentAnalyzer --|> Agent
+    QualityChecker --|> Agent
+    Crew --> Agent
+    Crew --> Task
+    Crew --> ProcessType
+    Task --> Agent : assigned to

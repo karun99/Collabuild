@@ -1,0 +1,35 @@
+graph TB
+    subgraph "collabuild/"
+        INIT["__init__.py\nPackage exports"]
+        MAIN["__main__.py\nCLI entry point"]
+        CFG["config.py\nYAML loader + env vars"]
+        PROV["providers.py\nLLM providers (7+)"]
+        MAS["mas.py\nAgent, Crew, Task framework"]
+        PIPE["pipeline.py\n9-stage pipeline"]
+
+        subgraph "ocr/"
+            BaiduOCR["baidu_ocr.py\nBaidu Unlimited-OCR + General OCR"]
+        end
+
+        subgraph "research/"
+            WF["web_fetcher.py\nURL fetching + text extraction"]
+            AR["agent_runner.py\nAutonomous research agent"]
+        end
+
+        subgraph "web/"
+            APP["app.py\nFastAPI routes + API"]
+            subgraph "templates/"
+                T1["chat.html"]
+                T2["settings.html"]
+                T3["pipeline.html"]
+                T4["tools.html"]
+                T5["base.html"]
+            end
+        end
+    end
+
+    MAIN --> CFG & PIPE
+    PIPE --> PROV
+    APP --> PROV & CFG
+    AR --> WF
+    AR --> BaiduOCR
