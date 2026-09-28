@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.ref_name, 'main') || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Write deployment compose file
         run: |
@@ -61,7 +61,7 @@ jobs:
           EOF
 
       - name: Deploy via SSH
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -70,7 +70,7 @@ jobs:
           target: "/opt/collabuild"
 
       - name: Pull and restart stack
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
