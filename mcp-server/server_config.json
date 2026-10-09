@@ -1,0 +1,118 @@
+{
+  "app": {
+    "name": "Collabuild",
+    "version": "unknown",
+    "description": "A MAS implementation of research paper to prototype builder"
+  },
+  "stack": "python",
+  "routes": [
+    {
+      "method": "get",
+      "path": "/"
+    },
+    {
+      "method": "get",
+      "path": "/api/health"
+    },
+    {
+      "method": "get",
+      "path": "/api/capabilities"
+    },
+    {
+      "method": "post",
+      "path": "/api/run/{capability}"
+    },
+    {
+      "method": "post",
+      "path": "/api/agents/kickoff"
+    },
+    {
+      "method": "post",
+      "path": "/api/upload"
+    },
+    {
+      "method": "post",
+      "path": "/api/parse/{doc_id}"
+    },
+    {
+      "method": "get",
+      "path": "/settings"
+    },
+    {
+      "method": "get",
+      "path": "/pipeline"
+    },
+    {
+      "method": "post",
+      "path": "/api/chat"
+    },
+    {
+      "method": "post",
+      "path": "/api/chat/sync"
+    },
+    {
+      "method": "get",
+      "path": "/api/settings"
+    },
+    {
+      "method": "post",
+      "path": "/api/settings"
+    },
+    {
+      "method": "get",
+      "path": "/api/models"
+    },
+    {
+      "method": "get",
+      "path": "/api/local-models"
+    },
+    {
+      "method": "get",
+      "path": "/api/providers/status"
+    },
+    {
+      "method": "post",
+      "path": "/api/pipeline/run"
+    },
+    {
+      "method": "get",
+      "path": "/api/pipeline/{run_id}"
+    },
+    {
+      "method": "get",
+      "path": "/api/pipeline/{run_id}/stream"
+    },
+    {
+      "method": "get",
+      "path": "/tools"
+    },
+    {
+      "method": "get",
+      "path": "/api/tools/status"
+    },
+    {
+      "method": "post",
+      "path": "/api/tools/ocr"
+    },
+    {
+      "method": "post",
+      "path": "/api/tools/web-fetch"
+    },
+    {
+      "method": "post",
+      "path": "/api/tools/agent-run"
+    },
+    {
+      "method": "post",
+      "path": "/api/devsrs/build"
+    }
+  ],
+  "pages": [],
+  "base_url": "http://localhost:8000",
+  "module": "collabuild",
+  "scripts": {},
+  "cli_entry": null,
+  "server": "mcp-server/mcp_server.py",
+  "runner": "python",
+  "runner_cmd": "python3"
+}
