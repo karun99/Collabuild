@@ -14,8 +14,6 @@ on:
         description: "Deploy environment"
         required: true
         default: "production"
-  push:
-    branches: [main]
 
 jobs:
   deploy:
